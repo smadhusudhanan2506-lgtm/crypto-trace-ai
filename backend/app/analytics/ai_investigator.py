@@ -134,7 +134,7 @@ async def run_ai_investigation(
         patterns=detected_patterns,
     )
     if llm_narrative:
-        executive_summary = f"{llm_narrative}\n\n[Deterministic Graph Heuristic]: {executive_summary}"
+        executive_summary = llm_narrative
 
     # 10. Compute Risk Score & Fraud Confidence
     confidence_score = _calculate_confidence(intent_analysis, victim_matches, detected_patterns)
@@ -489,26 +489,28 @@ def _generate_executive_summary(
     wallets_count: int,
 ) -> str:
     """
-    Generates a concise, executive-level summary for senior police officers and investigators.
+    Generates simple, punchy key takeaways for easy understanding.
     """
-    env_str = "on the Ethereum Sepolia Testnet (Academic Prototype Demonstration)" if is_sepolia else f"on the {chain.capitalize()} blockchain (Live Mainnet Assets)"
+    typology = intent.get("primary_typology", "Suspicious Fund Flow")
+    total_val = amount_analysis.get("total_value", 0.0)
+    asset = amount_analysis.get("asset", "ETH")
     
-    summary = (
-        f"Forensic behavioral analysis of this {hops_count}-hop fund trail {env_str} reveals high indicators "
-        f"of {intent['primary_typology'].lower()}. "
-        f"A total volume of {amount_analysis['total_value']} {amount_analysis['asset']} was traced across {wallets_count} addresses. "
-    )
+    points = [
+        f"🎯 KEY FINDING: {typology} detected — {total_val:.4f} {asset} moved across {wallets_count} wallets in {hops_count} hops.",
+    ]
+    
+    if intent.get("vasp_identified"):
+        vasps = ", ".join(intent.get("vasp_names", [])) or "centralized exchange"
+        points.append(f"🔄 FUND TRAIL: Funds split through intermediary mules and deposited into {vasps} for cash-out.")
+        points.append(f"🛡️ RECOMMENDED ACTION: Send urgent KYC subpoena and freeze notice to {vasps}.")
+    else:
+        points.append(f"🔄 FUND TRAIL: Funds dispersed into unhosted staging wallets; no exchange exit detected yet.")
+        points.append(f"🛡️ RECOMMENDED ACTION: Place all {wallets_count} wallets on real-time on-chain surveillance.")
 
     if victim_matches:
-        summary += f"Crucially, the traced addresses match {len(victim_matches)} existing victim complaints in the cyber crime registry, establishing cross-case syndicate linkage. "
+        points.append(f"🚨 VICTIM LINK: Trace addresses match {len(victim_matches)} registered cyber crime complaint(s).")
 
-    if intent.get("vasp_identified"):
-        vasps = ", ".join(intent.get("vasp_names", [])) or "a known exchange"
-        summary += f"The terminal fund flow attempts to exit into {vasps}, providing an immediate opportunity for law enforcement KYC subpoena and asset freeze."
-    else:
-        summary += "Funds currently reside in intermediary unhosted wallets; active on-chain surveillance is recommended."
-
-    return summary
+    return "\n\n".join(points)
 
 
 def _calculate_confidence(intent: dict, victim_matches: List[dict], patterns: List[dict]) -> int:
@@ -540,8 +542,7 @@ async def _call_llm_intelligence(
     patterns: List[dict],
 ) -> Optional[str]:
     """
-    Calls Groq (free Llama/Qwen) or OpenAI API to generate an AI intelligence narrative.
-    Gracefully falls back to None on any network or quota issue.
+    Calls Groq / OpenAI API to generate simple, punchy 3-bullet points for investigators.
     """
     api_key = settings.GROQ_API_KEY or settings.OPENAI_API_KEY
     if not api_key:
@@ -552,33 +553,38 @@ async def _call_llm_intelligence(
     model = "groq/compound-mini" if is_groq else "gpt-4o-mini"
 
     pattern_names = [p.get("pattern_type", "") for p in patterns if p.get("pattern_type")]
-    prompt = f"""You are a senior Cryptocurrency Fraud & Blockchain Cyber Crime Intelligence Analyst.
-Analyze the following forensic trace data and generate an executive summary brief for law enforcement:
+    vasp_info = f"{', '.join(intent.get('vasp_names', []))}" if intent.get('vasp_identified') else "Unhosted Wallets"
 
-Blockchain: {chain} {'(Sepolia Testnet Simulation)' if is_sepolia else '(Live Mainnet)'}
-Primary Typology: {intent.get('primary_typology', 'Suspicious Fund Flow')}
-Total Amount: {amount_analysis.get('total_value', 0)} {amount_analysis.get('asset', 'ETH')}
-Hops Traced: {hops_count}
-Wallets Involved: {wallets_count}
-Detected Patterns: {', '.join(pattern_names) if pattern_names else 'None'}
-Linked Victim Complaints: {len(victim_matches)}
-VASP/Exchange Cashout Identified: {intent.get('vasp_identified', False)} ({', '.join(intent.get('vasp_names', []))})
+    prompt = f"""You are a crypto cyber crime forensic assistant.
+Summarize this blockchain trace in ONLY 3 SHORT, CLEAR, SIMPLE BULLET POINTS for quick reading (max 1-2 lines per point, no long paragraphs, no heavy jargon):
 
-Write a concise, professional 2-3 paragraph investigative briefing detailing the modus operandi, money laundering layering scheme, and recommended urgent police/legal action (e.g. freezing order, KYC subpoena)."""
+Trace Details:
+- Blockchain: {chain}
+- Fraud Type: {intent.get('primary_typology', 'Suspicious Flow')}
+- Total Amount: {amount_analysis.get('total_value', 0)} {amount_analysis.get('asset', 'ETH')}
+- Hops: {hops_count} across {wallets_count} wallets
+- Destination / Exchange: {vasp_info}
+- Linked Victims: {len(victim_matches)}
+- Patterns: {', '.join(pattern_names) if pattern_names else 'Layering'}
+
+Required Output Format (Plain and direct):
+🎯 KEY FINDING: (1 simple sentence explaining what happened)
+🔄 FUND FLOW: (1 simple step-by-step summary: e.g., Victim -> Mule Wallets -> Cashout)
+🛡️ ACTION NEEDED: (1 urgent action: e.g., Freeze exchange account or track wallets)"""
 
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=6.0) as client:
             response = await client.post(
                 url,
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json={
                     "model": model,
                     "messages": [
-                        {"role": "system", "content": "You are a professional law enforcement crypto forensic intelligence assistant."},
+                        {"role": "system", "content": "You provide ultra-concise, simple 3-point bullet summaries for police investigators. Do not write essays."},
                         {"role": "user", "content": prompt}
                     ],
-                    "max_tokens": 350,
-                    "temperature": 0.4,
+                    "max_tokens": 180,
+                    "temperature": 0.2,
                 }
             )
             if response.status_code == 200:
