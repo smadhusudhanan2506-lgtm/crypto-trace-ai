@@ -117,13 +117,14 @@ async def create_trace(
     trace_id = str(uuid.uuid4())
 
     # Start background trace
+    effective_max_hops = settings.TRACE_MAX_HOPS if (data.max_hops <= 0 or data.max_hops > settings.TRACE_MAX_HOPS) else data.max_hops
     background_tasks.add_task(
         _run_trace_background,
         trace_id=trace_id,
         start_tx_hash=data.tx_hash,
         start_address=data.address,
         chain=chain,
-        max_hops=min(data.max_hops, settings.TRACE_MAX_HOPS),
+        max_hops=effective_max_hops,
         direction=data.direction,
         case_id=data.case_id,
         investigator_id=current_user.id,

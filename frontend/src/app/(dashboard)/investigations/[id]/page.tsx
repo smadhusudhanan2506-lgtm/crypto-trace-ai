@@ -67,7 +67,7 @@ export default function CaseDetailPage() {
         address: caseData.suspect_wallet,
         chain: caseData.blockchain,
         case_id: caseId,
-        max_hops: 5,
+        max_hops: 100,
         direction: 'forward',
       });
       // Redirect to tracer with trace ID

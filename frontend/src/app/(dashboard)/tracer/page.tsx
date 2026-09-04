@@ -16,7 +16,7 @@ export default function TracerPage() {
   const [input, setInput] = useState('');
   const [chain, setChain] = useState('');
   const [direction, setDirection] = useState('forward');
-  const [maxHops, setMaxHops] = useState(5);
+  const [maxHops, setMaxHops] = useState(100);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [tracing, setTracing] = useState(false);
   const [traceId, setTraceId] = useState('');
@@ -219,10 +219,21 @@ export default function TracerPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">Max Hops</label>
-              <input type="number" min={1} max={10} value={maxHops}
-                onChange={(e) => setMaxHops(parseInt(e.target.value) || 5)}
-                className="input-field text-xs" />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs text-slate-400">Max Hops</label>
+                <span className="text-[10px] text-emerald-400 font-mono">
+                  {maxHops >= 100 ? 'Unlimited (100 max)' : `${maxHops} Hops`}
+                </span>
+              </div>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={maxHops}
+                onChange={(e) => setMaxHops(Math.max(1, Math.min(100, parseInt(e.target.value) || 100)))}
+                className="input-field text-xs"
+                placeholder="100 (Unlimited)"
+              />
             </div>
           </div>
         )}

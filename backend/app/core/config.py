@@ -48,9 +48,9 @@ class Settings(BaseSettings):
 
     # === Rate Limits & Constraints ===
     BLOCKCHAIN_MAX_REQUESTS_PER_SECOND: int = 5
-    TRACE_MAX_HOPS: int = 10
-    TRACE_MAX_ADDRESSES_PER_HOP: int = 20
-    TRACE_MAX_DURATION_SECONDS: int = 300
+    TRACE_MAX_HOPS: int = 100
+    TRACE_MAX_ADDRESSES_PER_HOP: int = 50
+    TRACE_MAX_DURATION_SECONDS: int = 600
 
     # === CORS ===
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
