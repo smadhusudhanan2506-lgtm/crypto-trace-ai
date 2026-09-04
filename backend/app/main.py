@@ -33,6 +33,17 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized")
 
+    # Seed essential users (always available in both live and demo mode)
+    try:
+        from app.core.database import async_session
+        from app.auth.service import seed_essential_users
+        async with async_session() as db:
+            await seed_essential_users(db)
+            await db.commit()
+        logger.info("Essential investigator accounts verified")
+    except Exception as e:
+        logger.warning(f"Essential user seeding: {e}")
+
     # Seed demo data and known entities
     try:
         from app.core.database import async_session

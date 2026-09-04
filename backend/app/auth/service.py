@@ -68,3 +68,46 @@ def create_user_token(user: User) -> TokenResponse:
         access_token=access_token,
         user=UserResponse.model_validate(user),
     )
+
+
+async def seed_essential_users(db: AsyncSession):
+    """Seed essential administrator and investigator accounts if not already present."""
+    default_users = [
+        {
+            "email": "smadhusudhanan2506@gmail.com",
+            "password": "123456",
+            "full_name": "Madhusudhanan S",
+            "role": "investigator",
+            "organization": "Cyber Crime Investigation Cell",
+            "badge_number": "INV-001",
+        },
+        {
+            "email": "admin@cryptotrace.ai",
+            "password": "admin123",
+            "full_name": "System Administrator",
+            "role": "admin",
+            "organization": "Cyber Crime Investigation Cell",
+            "badge_number": "ADMIN-001",
+        },
+        {
+            "email": "investigator@cryptotrace.ai",
+            "password": "demo123",
+            "full_name": "Inspector Raj Kumar",
+            "role": "investigator",
+            "organization": "Cyber Crime Investigation Cell",
+            "badge_number": "INV-2026-001",
+        },
+    ]
+    for u in default_users:
+        existing = await get_user_by_email(db, u["email"])
+        if not existing:
+            user = User(
+                email=u["email"],
+                full_name=u["full_name"],
+                hashed_password=hash_password(u["password"]),
+                role=u["role"],
+                organization=u["organization"],
+                badge_number=u["badge_number"],
+            )
+            db.add(user)
+    await db.flush()
