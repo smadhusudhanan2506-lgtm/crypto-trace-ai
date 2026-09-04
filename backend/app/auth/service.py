@@ -29,6 +29,22 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
     db.add(user)
     await db.flush()
     await db.refresh(user)
+
+    # Sync to MongoDB Atlas Cloud
+    try:
+        from app.core.mongodb import sync_user_to_mongo
+        await sync_user_to_mongo({
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "hashed_password": user.hashed_password,
+            "role": user.role,
+            "organization": user.organization,
+            "badge_number": user.badge_number,
+        })
+    except Exception:
+        pass
+
     return user
 
 

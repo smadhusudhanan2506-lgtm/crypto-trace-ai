@@ -33,6 +33,16 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized")
 
+    # Restore data from MongoDB Atlas Cloud if available
+    try:
+        from app.core.database import async_session
+        from app.core.mongodb import restore_all_from_mongo
+        async with async_session() as db:
+            await restore_all_from_mongo(db)
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"MongoDB restore on startup: {e}")
+
     # Seed essential users (always available in both live and demo mode)
     try:
         from app.core.database import async_session
