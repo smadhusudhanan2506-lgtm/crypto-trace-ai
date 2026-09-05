@@ -160,13 +160,24 @@ export default function TracerPage() {
             <button
               type="button"
               onClick={() => {
+                setInput('0xe19bc4e3113382f59b61296c87cf69bef8ea584d4b94852f5bcd28c2fb8ea06d');
+                setChain('sepolia');
+                setMaxHops(5);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-950/70 border border-[#00ff66]/50 text-[#00ff66] text-xs font-mono font-bold transition-colors shadow-[0_0_10px_rgba(0,255,102,0.2)]"
+            >
+              ⚡ 1. Live MetaMask Sepolia Trace (Victim 0x0564 &rarr; Scammer 0x9272 &rarr; Uniswap)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 setInput('0xdemo_tx_001_initial_victim_deposit');
                 setChain('ethereum');
                 setMaxHops(5);
               }}
               className="px-3 py-1.5 rounded-lg bg-[#041d0e] hover:bg-[#072d16] border border-[#0d331d] text-emerald-300 text-xs font-mono transition-colors"
             >
-              1. Multi-Victim Scam & Mule Layering (5 Hops)
+              2. Multi-Victim Scam & Mule Layering (5 Hops)
             </button>
             <button
               type="button"
@@ -177,7 +188,7 @@ export default function TracerPage() {
               }}
               className="px-3 py-1.5 rounded-lg bg-amber-950/30 hover:bg-amber-950/50 border border-amber-500/40 text-amber-300 text-xs font-mono transition-colors"
             >
-              2. Sepolia Testnet Phishing Prototype (4 Hops)
+              3. Sepolia Testnet Phishing Prototype (4 Hops)
             </button>
             <button
               type="button"
@@ -188,7 +199,7 @@ export default function TracerPage() {
               }}
               className="px-3 py-1.5 rounded-lg bg-[#041d0e] hover:bg-[#072d16] border border-[#0d331d] text-emerald-300 text-xs font-mono transition-colors"
             >
-              3. Suspect Syndicate Nexus & Binance Cashout
+              4. Suspect Syndicate Nexus & Binance Cashout
             </button>
           </div>
         </div>

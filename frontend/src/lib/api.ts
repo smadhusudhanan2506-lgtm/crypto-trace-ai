@@ -83,8 +83,24 @@ export const casesAPI = {
 export const victimsAPI = {
   list: (caseId: string) =>
     api.get<Victim[]>(`/api/cases/${caseId}/victims`),
+  listAll: () =>
+    api.get<Victim[]>('/api/victims'),
   create: (caseId: string, data: VictimCreate) =>
     api.post<Victim>(`/api/cases/${caseId}/victims`, data),
+  createDirect: (data: VictimCreate, caseId?: string) =>
+    api.post<Victim>('/api/victims', data, { params: caseId ? { case_id: caseId } : {} }),
+};
+
+// ─── VASP Intelligence ───────────────────────────────────────────────────────
+export const vaspAPI = {
+  entities: () =>
+    api.get<Array<{
+      name: string;
+      entity_type: string;
+      addresses: Array<{ address: string; chain: string; label: string; source: string }>;
+      confidence: number;
+      source: string;
+    }>>('/api/vasp/entities'),
 };
 
 // ─── Tracing ─────────────────────────────────────────────────────────────────

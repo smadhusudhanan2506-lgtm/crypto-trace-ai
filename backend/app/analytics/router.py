@@ -275,3 +275,14 @@ async def list_alerts(
         "status": a.status,
         "created_at": a.created_at.isoformat() if a.created_at else None,
     } for a in alerts]
+
+
+# === VASP Intelligence Router ===
+vasp_router = APIRouter(prefix="/api/vasp", tags=["VASP Intelligence"])
+
+
+@vasp_router.get("/entities")
+async def get_vasp_entities():
+    """Get catalog of known VASP exchanges, DEXes, bridges, and mixers."""
+    from app.attribution.known_entities import KNOWN_ENTITIES
+    return KNOWN_ENTITIES

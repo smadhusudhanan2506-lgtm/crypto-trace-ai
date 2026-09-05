@@ -11,11 +11,12 @@ from app.core.config import settings
 from app.core.database import init_db, close_db
 from app.auth.router import router as auth_router
 from app.cases.router import router as cases_router
-from app.victims.router import router as victims_router
+from app.victims.router import router as victims_router, global_router as victims_global_router
 from app.tracing.router import router as tracing_router
 from app.analytics.router import (
     blockchain_router, analytics_router,
     evidence_router, audit_router, alerts_router,
+    vasp_router,
 )
 
 # Configure logging
@@ -111,12 +112,14 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(cases_router)
 app.include_router(victims_router)
+app.include_router(victims_global_router)
 app.include_router(tracing_router)
 app.include_router(blockchain_router)
 app.include_router(analytics_router)
 app.include_router(evidence_router)
 app.include_router(audit_router)
 app.include_router(alerts_router)
+app.include_router(vasp_router)
 
 
 @app.get("/api/health")
