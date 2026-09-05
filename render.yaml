@@ -9,7 +9,21 @@ services:
         value: 3.11.9
       - key: APP_MODE
         value: live
-      - key: APP_SECRET_KEY
+      - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGINS
         value: "https://crypto-trace-ai-mu.vercel.app,http://localhost:3000,*"
+      - key: CHAINABUSE_API_KEY
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: ALCHEMY_API_KEY
+        sync: false
+      - key: ETH_EXPLORER_API_KEY
+        sync: false
+      - key: ETH_RPC_URL
+        value: https://rpc.ankr.com/eth
+      - key: SEPOLIA_RPC_URL
+        value: https://ethereum-sepolia-rpc.publicnode.com
+      - key: GROQ_API_KEY
+        sync: false
