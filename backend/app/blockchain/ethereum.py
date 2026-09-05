@@ -50,11 +50,54 @@ class EthereumAdapter(BlockchainAdapter):
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=30.0)
+            self._client = httpx.AsyncClient(
+                timeout=30.0,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) CryptoTrace/1.0"}
+            )
         return self._client
 
     async def _rpc_call(self, method: str, params: list) -> Optional[dict]:
-        """Make JSON-RPC call to Ethereum node."""
+        """Make JSON-RPC call to Ethereum node with automatic endpoint fallbacks."""
+        fallback_map = {
+            "sepolia": [
+                self.rpc_url,
+                "https://ethereum-sepolia-rpc.publicnode.com",
+                "https://1rpc.io/sepolia",
+                "https://sepolia.drpc.org",
+            ],
+            "ethereum": [
+                self.rpc_url,
+                "https://1rpc.io/eth",
+                "https://cloudflare-eth.com",
+                "https://ethereum-rpc.publicnode.com",
+            ],
+            "polygon": [
+                self.rpc_url,
+                "https://1rpc.io/matic",
+                "https://polygon-bor-rpc.publicnode.com",
+                "https://polygon-rpc.com",
+            ],
+            "bnb": [
+                self.rpc_url,
+                "https://bsc-dataseed.binance.org",
+                "https://1rpc.io/bnb",
+            ],
+            "arbitrum": [
+                self.rpc_url,
+                "https://arb1.arbitrum.io/rpc",
+                "https://1rpc.io/arb",
+            ],
+            "base": [
+                self.rpc_url,
+                "https://mainnet.base.org",
+                "https://1rpc.io/base",
+            ],
+        }
+
+        urls = [u for u in fallback_map.get(self._chain, [self.rpc_url]) if u]
+        if self.rpc_url and self.rpc_url not in urls:
+            urls.insert(0, self.rpc_url)
+
         async with self._rate_limiter:
             client = await self._get_client()
             payload = {
@@ -63,16 +106,17 @@ class EthereumAdapter(BlockchainAdapter):
                 "method": method,
                 "params": params,
             }
-            try:
-                response = await client.post(self.rpc_url, json=payload)
-                if response.status_code == 200:
-                    data = response.json()
-                    if "error" in data:
-                        logger.warning(f"RPC error: {data['error']}")
-                        return None
-                    return data.get("result")
-            except Exception as e:
-                logger.error(f"Ethereum RPC error: {e}")
+            for url in urls:
+                try:
+                    response = await client.post(url, json=payload, timeout=8.0)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if "error" in data:
+                            continue
+                        if data.get("result") is not None:
+                            return data.get("result")
+                except Exception as e:
+                    logger.debug(f"RPC fallback error on {url}: {e}")
             return None
 
     async def _etherscan_call(self, params: dict) -> Optional[dict]:

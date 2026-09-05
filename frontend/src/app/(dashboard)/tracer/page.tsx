@@ -8,8 +8,20 @@ import { truncateAddress, truncateHash, cn, timeAgo } from '@/lib/utils';
 import type { TraceDetail, TraceHop, TraceStatus } from '@/types';
 import {
   Search, Play, Loader2, CheckCircle2, XCircle, Network,
-  ArrowRight, Zap, ChevronDown, ChevronUp, Eye,
+  ArrowRight, Zap, ChevronDown, ChevronUp, Eye, ExternalLink,
 } from 'lucide-react';
+
+function getExplorerUrl(id: string, type: 'address' | 'tx', chain: string = 'ethereum') {
+  const c = chain.toLowerCase();
+  if (c === 'sepolia') return `https://sepolia.etherscan.io/${type}/${id}`;
+  if (c === 'polygon') return `https://polygonscan.com/${type}/${id}`;
+  if (c === 'bnb' || c === 'bsc') return `https://bscscan.com/${type}/${id}`;
+  if (c === 'arbitrum') return `https://arbiscan.io/${type}/${id}`;
+  if (c === 'base') return `https://basescan.org/${type}/${id}`;
+  if (c === 'bitcoin' || c === 'btc') return `https://mempool.space/${type}/${id}`;
+  if (c === 'tron' || c === 'trx') return `https://tronscan.org/#/${type}/${id}`;
+  return `https://etherscan.io/${type}/${id}`;
+}
 
 export default function TracerPage() {
   const searchParams = useSearchParams();
@@ -125,9 +137,11 @@ export default function TracerPage() {
       <div>
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <Search className="w-6 h-6 text-cyan-400" />
-          TXID Tracer
+          Multi-Chain TXID & Wallet Tracer
         </h1>
-        <p className="text-sm text-slate-400 mt-1">Trace blockchain fund flows from any transaction or address</p>
+        <p className="text-sm text-slate-400 mt-1">
+          Trace on-chain cryptocurrency fund flows, intermediary mules, and detect exchange / VASP liquidation endpoints across Ethereum, Sepolia, Polygon, BSC, Arbitrum, Base, Bitcoin, and Tron.
+        </p>
       </div>
 
       {/* Input */}
@@ -140,7 +154,7 @@ export default function TracerPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && startTrace()}
               className="input-field font-mono text-xs pl-4 pr-4 py-3"
-              placeholder="Enter transaction hash (TXID) or wallet address..."
+              placeholder="Enter transaction hash (TXID 0x...) or wallet address (0x..., bc1..., T...)..."
               disabled={tracing}
             />
           </div>
@@ -154,7 +168,7 @@ export default function TracerPage() {
         <div className="mt-4 pt-3 border-t border-[#1e293b]/60">
           <p className="text-[11px] font-mono text-slate-400 mb-2 flex items-center gap-1.5">
             <Zap className="w-3.5 h-3.5 text-amber-400" />
-            <span>Quick Demonstration Scenarios (Pre-configured Multi-Hop Cases):</span>
+            <span>Live Multi-Chain Forensic Scenarios:</span>
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -166,40 +180,40 @@ export default function TracerPage() {
               }}
               className="px-3 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-950/70 border border-[#00ff66]/50 text-[#00ff66] text-xs font-mono font-bold transition-colors shadow-[0_0_10px_rgba(0,255,102,0.2)]"
             >
-              ⚡ 1. Live MetaMask Sepolia Trace (Victim 0x0564 &rarr; Scammer 0x9272 &rarr; Uniswap)
+              ⚡ 1. Live Sepolia Trace (Victim 0x0564 &rarr; Scammer 0x9272 &rarr; Uniswap V3)
             </button>
             <button
               type="button"
               onClick={() => {
-                setInput('0xdemo_tx_001_initial_victim_deposit');
-                setChain('ethereum');
-                setMaxHops(5);
-              }}
-              className="px-3 py-1.5 rounded-lg bg-[#041d0e] hover:bg-[#072d16] border border-[#0d331d] text-emerald-300 text-xs font-mono transition-colors"
-            >
-              2. Multi-Victim Scam & Mule Layering (5 Hops)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setInput('0xdemo_sepolia_phishing_drainer_test');
+                setInput('0x9272477a53a8ec8a75df008d34cbddfefd82cf60');
                 setChain('sepolia');
-                setMaxHops(4);
+                setMaxHops(5);
               }}
-              className="px-3 py-1.5 rounded-lg bg-amber-950/30 hover:bg-amber-950/50 border border-amber-500/40 text-amber-300 text-xs font-mono transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-cyan-950/40 hover:bg-cyan-950/70 border border-cyan-500/50 text-cyan-300 text-xs font-mono font-bold transition-colors"
             >
-              3. Sepolia Testnet Phishing Prototype (4 Hops)
+              ⚡ 2. Live Suspect Wallet 0x9272... (Extract Inflows & Outflows)
             </button>
             <button
               type="button"
               onClick={() => {
-                setInput('0x5u5pect01eee6666777788889999000011112222');
+                setInput('0x28c6c06298d514db089934071355e5743bf21d60');
                 setChain('ethereum');
                 setMaxHops(5);
               }}
-              className="px-3 py-1.5 rounded-lg bg-[#041d0e] hover:bg-[#072d16] border border-[#0d331d] text-emerald-300 text-xs font-mono transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-purple-950/40 hover:bg-purple-950/70 border border-purple-500/50 text-purple-300 text-xs font-mono transition-colors"
             >
-              4. Suspect Syndicate Nexus & Binance Cashout
+              ⚡ 3. Live Ethereum Mainnet Binance 14 Hot Wallet
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInput('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
+                setChain('bitcoin');
+                setMaxHops(5);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-950/70 border border-amber-500/50 text-amber-300 text-xs font-mono transition-colors"
+            >
+              ⚡ 4. Live Bitcoin Genesis Wallet Trace
             </button>
           </div>
         </div>
@@ -215,18 +229,23 @@ export default function TracerPage() {
             <div>
               <label className="block text-xs text-slate-500 mb-1">Blockchain</label>
               <select value={chain} onChange={(e) => setChain(e.target.value)} className="input-field text-xs">
-                <option value="">Auto-detect</option>
+                <option value="">⚡ Auto-Detect (Multi-Chain Probe)</option>
                 <option value="ethereum">Ethereum (Mainnet)</option>
-                <option value="sepolia">Ethereum Sepolia (100% Free Testnet)</option>
-                <option value="bitcoin">Bitcoin</option>
+                <option value="sepolia">Ethereum Sepolia (Testnet)</option>
+                <option value="polygon">Polygon (MATIC)</option>
+                <option value="bnb">BNB Smart Chain (BSC)</option>
+                <option value="arbitrum">Arbitrum One</option>
+                <option value="base">Base</option>
+                <option value="bitcoin">Bitcoin (BTC)</option>
+                <option value="tron">Tron (TRX)</option>
               </select>
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Direction</label>
               <select value={direction} onChange={(e) => setDirection(e.target.value)} className="input-field text-xs">
-                <option value="forward">Forward (follow funds)</option>
-                <option value="backward">Backward (find source)</option>
-                <option value="both">Both directions</option>
+                <option value="forward">Forward (follow funds to VASP / cashout)</option>
+                <option value="backward">Backward (find source / victim)</option>
+                <option value="both">Both directions (full Nexus)</option>
               </select>
             </div>
             <div>
@@ -378,16 +397,51 @@ export default function TracerPage() {
                   {hops.map((h) => (
                     <tr key={h.id}>
                       <td><span className="bg-[#1e293b] text-slate-300 px-2 py-0.5 rounded text-xs font-mono">{h.hop_number}</span></td>
-                      <td className="font-mono text-xs text-slate-300">{truncateAddress(h.source_address)}</td>
+                      <td className="font-mono text-xs">
+                        <a
+                          href={getExplorerUrl(h.source_address, 'address', h.chain || result.chain)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-slate-300 hover:text-cyan-400 inline-flex items-center gap-1 transition-colors"
+                        >
+                          {truncateAddress(h.source_address)}
+                          <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                        </a>
+                      </td>
                       <td><ArrowRight className="w-4 h-4 text-emerald-500" /></td>
-                      <td className="font-mono text-xs text-slate-300">{truncateAddress(h.destination_address)}</td>
-                      <td className="font-mono text-xs text-amber-400">{h.amount.toFixed(6)} {h.asset}</td>
-                      <td className="font-mono text-xs text-cyan-400">{truncateHash(h.tx_hash)}</td>
+                      <td className="font-mono text-xs">
+                        <a
+                          href={getExplorerUrl(h.destination_address, 'address', h.chain || result.chain)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(
+                            "inline-flex items-center gap-1 transition-colors font-bold",
+                            h.is_vasp_endpoint ? "text-purple-300 hover:text-purple-200" : "text-slate-300 hover:text-cyan-400"
+                          )}
+                        >
+                          {truncateAddress(h.destination_address)}
+                          <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                        </a>
+                      </td>
+                      <td className="font-mono text-xs text-amber-400 font-bold">{h.amount.toFixed(6)} {h.asset}</td>
+                      <td className="font-mono text-xs">
+                        <a
+                          href={getExplorerUrl(h.tx_hash, 'tx', h.chain || result.chain)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-cyan-400 hover:underline inline-flex items-center gap-1"
+                        >
+                          {truncateHash(h.tx_hash)}
+                          <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                        </a>
+                      </td>
                       <td>
-                        {h.is_vasp_endpoint ? (
-                          <span className="badge bg-purple-500/20 text-purple-400 border-purple-500/40 text-xs">{h.vasp_name}</span>
+                        {h.is_vasp_endpoint || (h.vasp_name && h.vasp_name.length > 0) ? (
+                          <span className="badge bg-purple-500/25 text-purple-300 border border-purple-500/50 text-xs font-bold px-2.5 py-0.5 rounded shadow-[0_0_8px_rgba(192,132,252,0.3)]">
+                            🏛️ {h.vasp_name || result.vasp_name}
+                          </span>
                         ) : (
-                          <span className="text-slate-600">-</span>
+                          <span className="text-slate-600 text-xs">Unhosted Mule</span>
                         )}
                       </td>
                       <td className="text-xs text-slate-500">{timeAgo(h.timestamp)}</td>

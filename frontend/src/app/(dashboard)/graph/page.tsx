@@ -41,13 +41,15 @@ function GraphContent() {
   };
 
   const getExplorerUrl = (id: string, type: 'address' | 'tx', chain: string = 'ethereum') => {
-    if (chain.toLowerCase() === 'sepolia') {
-      return type === 'tx' ? `https://sepolia.etherscan.io/tx/${id}` : `https://sepolia.etherscan.io/address/${id}`;
-    }
-    if (chain.toLowerCase() === 'bitcoin') {
-      return type === 'tx' ? `https://mempool.space/tx/${id}` : `https://mempool.space/address/${id}`;
-    }
-    return type === 'tx' ? `https://etherscan.io/tx/${id}` : `https://etherscan.io/address/${id}`;
+    const c = chain.toLowerCase();
+    if (c === 'sepolia') return `https://sepolia.etherscan.io/${type}/${id}`;
+    if (c === 'polygon') return `https://polygonscan.com/${type}/${id}`;
+    if (c === 'bnb' || c === 'bsc') return `https://bscscan.com/${type}/${id}`;
+    if (c === 'arbitrum') return `https://arbiscan.io/${type}/${id}`;
+    if (c === 'base') return `https://basescan.org/${type}/${id}`;
+    if (c === 'bitcoin' || c === 'btc') return `https://mempool.space/${type}/${id}`;
+    if (c === 'tron' || c === 'trx') return `https://tronscan.org/#/${type}/${id}`;
+    return `https://etherscan.io/${type}/${id}`;
   };
 
   const loadTrace = useCallback(async (traceId: string) => {
