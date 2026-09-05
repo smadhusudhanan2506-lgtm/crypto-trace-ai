@@ -58,6 +58,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#020b06] py-10">
       <MatrixBackground />
 
+      {/* Radial and Ambient Matrix Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#00ff66]/10 rounded-full blur-[140px] pointer-events-none z-[1]" />
+
       {/* Login Card */}
       <div className="relative z-10 w-full max-w-md px-4 animate-slide-up">
         {/* Logo Header */}

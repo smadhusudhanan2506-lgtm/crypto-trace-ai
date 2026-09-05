@@ -3,9 +3,9 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * CryptoTrace AI — Clean Authentic Matrix Rain Background
- * Crisp falling binary streams cascading in a continuous smooth 60fps loop
- * without any blurry radial halos, glow blobs, or ambient glare.
+ * CryptoTrace AI — High-Fidelity Animated Matrix Rain Background
+ * Matches deep emerald/matrix green cyber aesthetic with falling binary streams,
+ * luminous neon green glowing heads, ambient light halos, and smooth 60fps movement.
  */
 interface Stream {
   x: number;
@@ -14,7 +14,9 @@ interface Stream {
   fontSize: number;
   length: number;
   chars: string[];
-  layer: number; // 0 = background (dim), 1 = midground, 2 = foreground
+  headGlow: boolean;
+  glowNodeIndex: number;
+  layer: number; // 0 = background (dim), 1 = midground, 2 = foreground (bright/glowing)
   mutationTimer: number;
 }
 
@@ -31,7 +33,7 @@ export default function MatrixBackground() {
     let animationId: number;
     let streams: Stream[] = [];
 
-    // Authentic matrix binary and alphanumeric character pool
+    // Binary weighted character set for authentic matrix rain
     const charsPool = [
       '0', '1', '0', '1', '1', '0', '0', '1', '0', '1', '1', '0',
       '0', '1', '0', '1', '0', '1', '1', '0', '0', '1', '0', '1',
@@ -47,20 +49,24 @@ export default function MatrixBackground() {
     function createStream(x: number, layer: number): Stream {
       const isForeground = layer === 2;
       const isMidground = layer === 1;
-
-      const fontSize = isForeground ? 14 : isMidground ? 12 : 10;
-      const length = Math.floor(Math.random() * 18) + (isForeground ? 16 : 12);
+      
+      const fontSize = isForeground ? 15 : isMidground ? 13 : 11;
+      const length = Math.floor(Math.random() * 20) + (isForeground ? 18 : 14);
       const chars: string[] = [];
       for (let j = 0; j < length; j++) {
         chars.push(getRandomChar());
       }
 
-      // Smooth downward speed
-      const baseSpeed = isForeground
-        ? Math.random() * 1.2 + 1.0
-        : isMidground
-        ? Math.random() * 0.8 + 0.5
-        : Math.random() * 0.5 + 0.3;
+      // Varied downward speed
+      const baseSpeed = isForeground 
+        ? Math.random() * 1.3 + 1.2 
+        : isMidground 
+        ? Math.random() * 0.8 + 0.6 
+        : Math.random() * 0.5 + 0.35;
+
+      // Glowing nodes/heads
+      const hasHeadGlow = isForeground || (isMidground && Math.random() > 0.35);
+      const glowNodeIndex = Math.random() > 0.4 ? Math.floor(Math.random() * Math.min(4, length)) : 0;
 
       return {
         x,
@@ -69,6 +75,8 @@ export default function MatrixBackground() {
         fontSize,
         length,
         chars,
+        headGlow: hasHeadGlow,
+        glowNodeIndex,
         layer,
         mutationTimer: Math.floor(Math.random() * 10),
       };
@@ -80,22 +88,22 @@ export default function MatrixBackground() {
 
       const width = canvas.width;
 
-      // Background layer (dense, subtle, crisp)
+      // Background layer (dense, small, faint emerald)
       const bgCols = Math.floor(width / 14);
       for (let i = 0; i < bgCols; i++) {
-        streams.push(createStream(i * 14 + (Math.random() * 4 - 2), 0));
+        streams.push(createStream(i * 14 + (Math.random() * 6 - 3), 0));
       }
 
-      // Midground layer (medium size, clear emerald)
-      const midCols = Math.floor(width / 20);
+      // Midground layer (medium size, crisp emerald)
+      const midCols = Math.floor(width / 22);
       for (let i = 0; i < midCols; i++) {
-        streams.push(createStream(i * 20 + (Math.random() * 6 - 3), 1));
+        streams.push(createStream(i * 22 + (Math.random() * 8 - 4), 1));
       }
 
-      // Foreground layer (crisp bright green)
-      const fgCols = Math.floor(width / 26);
+      // Foreground layer (large font with bright glowing neon green heads)
+      const fgCols = Math.floor(width / 28);
       for (let i = 0; i < fgCols; i++) {
-        streams.push(createStream(i * 26 + (Math.random() * 8 - 4), 2));
+        streams.push(createStream(i * 28 + (Math.random() * 10 - 5), 2));
       }
     }
 
@@ -114,22 +122,22 @@ export default function MatrixBackground() {
       const delta = Math.min((currentTime - lastTime) / 16.666, 2.0);
       lastTime = currentTime;
 
-      // Clean dark fade for crisp falling trail without ghost blur
-      ctx.fillStyle = 'rgba(2, 11, 6, 0.12)';
+      // Dark emerald fade for smooth trails
+      ctx.fillStyle = 'rgba(2, 11, 6, 0.14)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       for (let i = 0; i < streams.length; i++) {
         const stream = streams[i];
-
+        
         // Random character mutation
         stream.mutationTimer += delta;
-        if (stream.mutationTimer > 6) {
+        if (stream.mutationTimer > 5) {
           stream.mutationTimer = 0;
           const mutateIndex = Math.floor(Math.random() * stream.length);
           stream.chars[mutateIndex] = getRandomChar();
         }
 
-        // Draw characters from tail down to leading head
+        // Draw characters from top of stream down to head
         for (let j = 0; j < stream.length; j++) {
           const charY = stream.y - j * stream.fontSize;
 
@@ -138,25 +146,47 @@ export default function MatrixBackground() {
             continue;
           }
 
-          const isHead = j === 0;
-          const isNearHead = j === 1 || j === 2;
+          const isHead = j === stream.glowNodeIndex;
+          const isNearHead = j < 3;
           const trailProgress = j / stream.length; // 0 at head, 1 at tail
 
           ctx.font = `${stream.fontSize}px "JetBrains Mono", "Courier New", monospace`;
           ctx.textAlign = 'center';
 
-          if (isHead) {
-            // Clean crisp bright white-green leading head (NO blurry glow balls)
-            ctx.fillStyle = stream.layer === 2 ? '#ffffff' : '#e6fffa';
+          if (isHead && stream.headGlow && stream.layer >= 1) {
+            // Glowing head / node effect
+            // 1. Soft radial luminous aura behind the glowing node
+            const auraRadius = stream.layer === 2 ? 22 : 14;
+            const radialGlow = ctx.createRadialGradient(
+              stream.x, charY - stream.fontSize / 3, 0,
+              stream.x, charY - stream.fontSize / 3, auraRadius
+            );
+            radialGlow.addColorStop(0, 'rgba(0, 255, 102, 0.55)');
+            radialGlow.addColorStop(0.4, 'rgba(0, 255, 102, 0.2)');
+            radialGlow.addColorStop(1, 'rgba(0, 255, 102, 0)');
+            
+            ctx.fillStyle = radialGlow;
+            ctx.beginPath();
+            ctx.arc(stream.x, charY - stream.fontSize / 3, auraRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 2. Head text with neon bloom
+            ctx.shadowColor = '#00ff66';
+            ctx.shadowBlur = stream.layer === 2 ? 16 : 9;
+            ctx.fillStyle = stream.layer === 2 ? '#ffffff' : '#dcfce7';
             ctx.fillText(stream.chars[j], stream.x, charY);
+            ctx.shadowBlur = 0; // reset
           } else if (isNearHead) {
-            // Crisp vibrant matrix green
-            ctx.fillStyle = stream.layer === 2 ? '#00ff66' : '#10b981';
+            // Bright green upper trail
+            ctx.shadowColor = '#00ff66';
+            ctx.shadowBlur = stream.layer === 2 ? 8 : 0;
+            ctx.fillStyle = stream.layer === 2 ? '#00ff66' : '#22c55e';
             ctx.fillText(stream.chars[j], stream.x, charY);
+            ctx.shadowBlur = 0;
           } else {
-            // Smooth natural fade
-            let alpha = (1 - trailProgress) * (stream.layer === 2 ? 0.85 : stream.layer === 1 ? 0.6 : 0.3);
-            if (alpha < 0.05) alpha = 0.05;
+            // Fading trail
+            let alpha = (1 - trailProgress) * (stream.layer === 2 ? 0.9 : stream.layer === 1 ? 0.65 : 0.35);
+            if (alpha < 0.04) alpha = 0.04;
 
             if (trailProgress < 0.35) {
               ctx.fillStyle = `rgba(16, 185, 129, ${alpha})`;
@@ -173,14 +203,15 @@ export default function MatrixBackground() {
         // Advance stream
         stream.y += stream.speed * delta;
 
-        // Reset stream when it moves past the bottom of the screen
+        // Reset stream when it moves past bottom
         if (stream.y - stream.length * stream.fontSize > canvas.height) {
           stream.y = -Math.random() * 80;
-          stream.speed = stream.layer === 2
-            ? Math.random() * 1.2 + 1.0
-            : stream.layer === 1
-            ? Math.random() * 0.8 + 0.5
-            : Math.random() * 0.5 + 0.3;
+          stream.speed = stream.layer === 2 
+            ? Math.random() * 1.3 + 1.2 
+            : stream.layer === 1 
+            ? Math.random() * 0.8 + 0.6 
+            : Math.random() * 0.5 + 0.35;
+          stream.glowNodeIndex = Math.random() > 0.4 ? Math.floor(Math.random() * 4) : 0;
           for (let k = 0; k < stream.length; k++) {
             stream.chars[k] = getRandomChar();
           }
@@ -204,15 +235,19 @@ export default function MatrixBackground() {
 
   return (
     <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden" aria-hidden="true">
-      {/* Deep matrix dark canvas container — clean, no blurry glow halos */}
+      {/* Base deep matrix background */}
       <div className="absolute inset-0 bg-[#020b06]" />
-
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_90%_at_50%_20%,rgba(4,36,18,0.45),rgba(2,11,6,0.96))]" />
+      
       {/* Animated Canvas */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"
-        style={{ opacity: 0.75 }}
+        style={{ opacity: 0.8 }}
       />
+      
+      {/* Subtle vignette overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#020b06]/85 via-transparent to-[#020b06]/65" />
     </div>
   );
 }
