@@ -281,7 +281,7 @@ class EthereumAdapter(BlockchainAdapter):
     async def get_transactions_for_address(
         self, address: str, limit: int = 50
     ) -> List[NormalizedTransaction]:
-        """Fetch transactions for an Ethereum address via Etherscan / Blockscout API."""
+        """Fetch transactions and ERC-20 token transfers for an address via Etherscan V2 / Blockscout API."""
         result = await self._etherscan_call({
             "module": "account",
             "action": "txlist",
@@ -293,43 +293,110 @@ class EthereumAdapter(BlockchainAdapter):
             "sort": "desc",
         })
 
-        if not result or not isinstance(result, list):
-            return []
+        transactions: List[NormalizedTransaction] = []
+        if result and isinstance(result, list):
+            for tx in result[:limit]:
+                try:
+                    block_time = int(tx.get("timeStamp", "0"))
+                    timestamp = datetime.fromtimestamp(block_time, tz=timezone.utc)
+                    value_eth = int(tx.get("value", "0")) / 1e18
+                    gas_used = int(tx.get("gasUsed", "0"))
+                    gas_price = int(tx.get("gasPrice", "0"))
+                    fee = (gas_used * gas_price) / 1e18
 
-        transactions = []
-        for tx in result[:limit]:
-            try:
-                block_time = int(tx.get("timeStamp", "0"))
-                timestamp = datetime.fromtimestamp(block_time, tz=timezone.utc)
-                value_eth = int(tx.get("value", "0")) / 1e18
-                gas_used = int(tx.get("gasUsed", "0"))
-                gas_price = int(tx.get("gasPrice", "0"))
-                fee = (gas_used * gas_price) / 1e18
+                    transactions.append(NormalizedTransaction(
+                        tx_hash=tx.get("hash", ""),
+                        chain=self._chain,
+                        block_number=int(tx.get("blockNumber", "0")),
+                        block_timestamp=timestamp,
+                        status="confirmed" if tx.get("txreceipt_status") == "1" else "failed",
+                        confirmations=int(tx.get("confirmations", "0")),
+                        from_address=tx.get("from", "").lower(),
+                        to_address=tx.get("to", "").lower(),
+                        amount=value_eth,
+                        asset=self._asset,
+                        fee=fee,
+                        gas_used=gas_used,
+                        gas_price=gas_price / 1e9,
+                        is_contract_interaction=bool(tx.get("input", "0x") != "0x"),
+                        raw_data=tx,
+                        provider="etherscan" if self.explorer_api_key else "blockscout",
+                        retrieved_at=datetime.now(timezone.utc),
+                    ))
+                except (ValueError, KeyError) as e:
+                    logger.warning(f"Error parsing Explorer tx: {e}")
+                    continue
 
-                transactions.append(NormalizedTransaction(
-                    tx_hash=tx.get("hash", ""),
-                    chain=self._chain,
-                    block_number=int(tx.get("blockNumber", "0")),
-                    block_timestamp=timestamp,
-                    status="confirmed" if tx.get("txreceipt_status") == "1" else "failed",
-                    confirmations=int(tx.get("confirmations", "0")),
-                    from_address=tx.get("from", "").lower(),
-                    to_address=tx.get("to", "").lower(),
-                    amount=value_eth,
-                    asset=self._asset,
-                    fee=fee,
-                    gas_used=gas_used,
-                    gas_price=gas_price / 1e9,
-                    is_contract_interaction=bool(tx.get("input", "0x") != "0x"),
-                    raw_data=tx,
-                    provider="etherscan" if self.explorer_api_key else "blockscout",
-                    retrieved_at=datetime.now(timezone.utc),
-                ))
-            except (ValueError, KeyError) as e:
-                logger.warning(f"Error parsing Explorer tx: {e}")
-                continue
+        # Also fetch ERC-20 Token Transfers
+        try:
+            token_txs = await self._etherscan_call({
+                "module": "account",
+                "action": "tokentx",
+                "address": address,
+                "page": 1,
+                "offset": limit,
+                "sort": "desc",
+            })
+            if token_txs and isinstance(token_txs, list):
+                existing_hashes = {t.tx_hash for t in transactions}
+                for ttx in token_txs[:limit]:
+                    try:
+                        thash = ttx.get("hash", "")
+                        decimals = int(ttx.get("tokenDecimal", "18"))
+                        val = int(ttx.get("value", "0")) / (10 ** decimals)
+                        sym = ttx.get("tokenSymbol", "ERC20")
+                        btime = int(ttx.get("timeStamp", "0"))
+                        ttime = datetime.fromtimestamp(btime, tz=timezone.utc)
+                        from_a = ttx.get("from", "").lower()
+                        to_a = ttx.get("to", "").lower()
 
-        return transactions
+                        if thash in existing_hashes:
+                            # Attach token transfer to existing tx object
+                            for tx in transactions:
+                                if tx.tx_hash == thash:
+                                    tx.token_transfers.append(TokenTransfer(
+                                        token_address=ttx.get("contractAddress", ""),
+                                        token_name=ttx.get("tokenName", ""),
+                                        token_symbol=sym,
+                                        token_decimals=decimals,
+                                        from_address=from_a,
+                                        to_address=to_a,
+                                        value=val,
+                                    ))
+                        else:
+                            # Create new transaction record for the token transfer
+                            transactions.append(NormalizedTransaction(
+                                tx_hash=thash,
+                                chain=self._chain,
+                                block_number=int(ttx.get("blockNumber", "0")),
+                                block_timestamp=ttime,
+                                status="confirmed",
+                                from_address=from_a,
+                                to_address=to_a,
+                                amount=val,
+                                asset=sym,
+                                is_contract_interaction=True,
+                                token_transfers=[TokenTransfer(
+                                    token_address=ttx.get("contractAddress", ""),
+                                    token_name=ttx.get("tokenName", ""),
+                                    token_symbol=sym,
+                                    token_decimals=decimals,
+                                    from_address=from_a,
+                                    to_address=to_a,
+                                    value=val,
+                                )],
+                                raw_data=ttx,
+                                provider="etherscan_tokentx",
+                                retrieved_at=datetime.now(timezone.utc),
+                            ))
+                    except Exception:
+                        continue
+        except Exception as e:
+            logger.debug(f"Error fetching token transfers for {address}: {e}")
+
+        # Sort combined transactions descending by timestamp
+        transactions.sort(key=lambda t: t.block_timestamp or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+        return transactions[:limit]
 
     async def get_token_transfers(
         self, address: str, limit: int = 50

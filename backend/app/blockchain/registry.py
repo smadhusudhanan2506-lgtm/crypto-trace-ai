@@ -53,25 +53,43 @@ class BlockchainRegistry:
             explorer_url="https://api.etherscan.io/v2/api",
         )
 
-        # Polygon — if configured
-        if settings.POLYGON_RPC_URL:
-            self._adapters["polygon"] = EthereumAdapter(
-                rpc_url=settings.POLYGON_RPC_URL,
-                explorer_api_key=settings.POLYGON_EXPLORER_API_KEY,
-                chain="polygon",
-                asset="MATIC",
-                explorer_url="https://api.polygonscan.com/api",
-            )
+        # Polygon — default to public RPC if not explicitly configured
+        polygon_rpc = settings.POLYGON_RPC_URL or "https://polygon-bor-rpc.publicnode.com"
+        self._adapters["polygon"] = EthereumAdapter(
+            rpc_url=polygon_rpc,
+            explorer_api_key=settings.ETH_EXPLORER_API_KEY or settings.POLYGON_EXPLORER_API_KEY or "",
+            chain="polygon",
+            asset="MATIC",
+            explorer_url="https://api.polygonscan.com/api",
+        )
 
-        # BNB Chain — if configured
-        if settings.BNB_RPC_URL:
-            self._adapters["bnb"] = EthereumAdapter(
-                rpc_url=settings.BNB_RPC_URL,
-                explorer_api_key=settings.BNB_EXPLORER_API_KEY,
-                chain="bnb",
-                asset="BNB",
-                explorer_url="https://api.bscscan.com/api",
-            )
+        # BNB Chain — default to public RPC if not explicitly configured
+        bnb_rpc = settings.BNB_RPC_URL or "https://bsc-dataseed.binance.org"
+        self._adapters["bnb"] = EthereumAdapter(
+            rpc_url=bnb_rpc,
+            explorer_api_key=settings.ETH_EXPLORER_API_KEY or settings.BNB_EXPLORER_API_KEY or "",
+            chain="bnb",
+            asset="BNB",
+            explorer_url="https://api.bscscan.com/api",
+        )
+
+        # Arbitrum One
+        self._adapters["arbitrum"] = EthereumAdapter(
+            rpc_url="https://arb1.arbitrum.io/rpc",
+            explorer_api_key=settings.ETH_EXPLORER_API_KEY or "",
+            chain="arbitrum",
+            asset="ETH",
+            explorer_url="https://api.arbiscan.io/api",
+        )
+
+        # Base
+        self._adapters["base"] = EthereumAdapter(
+            rpc_url="https://mainnet.base.org",
+            explorer_api_key=settings.ETH_EXPLORER_API_KEY or "",
+            chain="base",
+            asset="ETH",
+            explorer_url="https://api.basescan.org/api",
+        )
 
     def get_adapter(self, chain: str) -> Optional[BlockchainAdapter]:
         """Get adapter for a specific chain."""
