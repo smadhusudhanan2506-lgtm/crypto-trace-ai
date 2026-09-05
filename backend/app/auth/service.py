@@ -11,7 +11,7 @@ from app.core.security import hash_password, verify_password, create_access_toke
 
 
 async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
-    """Register a new user."""
+    """Register a new user and commit immediately to database."""
     # Check if email exists
     result = await db.execute(select(User).where(User.email == user_data.email))
     existing = result.scalar_one_or_none()
@@ -28,20 +28,22 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
     )
     db.add(user)
     await db.flush()
+    await db.commit()
     await db.refresh(user)
 
-    # Sync to MongoDB Atlas Cloud
+    # Sync to MongoDB Atlas Cloud in background without blocking registration
     try:
         from app.core.mongodb import sync_user_to_mongo
-        await sync_user_to_mongo({
-            "id": user.id,
-            "email": user.email,
-            "full_name": user.full_name,
-            "hashed_password": user.hashed_password,
-            "role": user.role,
-            "organization": user.organization,
-            "badge_number": user.badge_number,
-        })
+        import asyncio
+        asyncio.create_task(sync_user_to_mongo({
+            "id": str(user.id),
+            "email": str(user.email),
+            "full_name": str(user.full_name),
+            "hashed_password": str(user.hashed_password),
+            "role": str(user.role),
+            "organization": str(user.organization),
+            "badge_number": str(user.badge_number),
+        }))
     except Exception:
         pass
 

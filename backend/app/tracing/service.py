@@ -112,11 +112,27 @@ async def start_trace(
 
         if start_tx_hash:
             tx = await adapter.get_transaction(start_tx_hash)
+            if not tx and chain == "ethereum":
+                sepolia_adapter = registry.get_adapter("sepolia")
+                if sepolia_adapter:
+                    tx = await sepolia_adapter.get_transaction(start_tx_hash)
+                    if tx:
+                        adapter = sepolia_adapter
+                        chain = "sepolia"
+                        trace.chain = "sepolia"
             if tx:
                 initial_txs.append(tx)
                 await _store_transaction(db, tx)
         elif start_address:
             txs = await adapter.get_transactions_for_address(start_address, limit=10)
+            if not txs and chain == "ethereum":
+                sepolia_adapter = registry.get_adapter("sepolia")
+                if sepolia_adapter:
+                    txs = await sepolia_adapter.get_transactions_for_address(start_address, limit=10)
+                    if txs:
+                        adapter = sepolia_adapter
+                        chain = "sepolia"
+                        trace.chain = "sepolia"
             initial_txs.extend(txs)
             for tx in txs:
                 await _store_transaction(db, tx)

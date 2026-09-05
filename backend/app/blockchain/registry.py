@@ -47,10 +47,10 @@ class BlockchainRegistry:
 
         self._adapters["sepolia"] = EthereumAdapter(
             rpc_url=sepolia_rpc,
-            explorer_api_key="",
+            explorer_api_key=settings.ETH_EXPLORER_API_KEY or "",
             chain="sepolia",
             asset="ETH",
-            explorer_url="https://eth-sepolia.blockscout.com/api",
+            explorer_url="https://api.etherscan.io/v2/api",
         )
 
         # Polygon — if configured
@@ -93,16 +93,43 @@ class BlockchainRegistry:
         """Auto-detect which blockchain a TXID or address belongs to."""
         value = value.strip()
 
-        # Try each adapter
-        for name, adapter in self._adapters.items():
-            if not adapter.is_configured:
-                continue
-            try:
-                result = await adapter.identify(value)
-                if result:
-                    return result
-            except Exception as e:
-                logger.warning(f"Chain identification error for {name}: {e}")
+        # Check Bitcoin first
+        btc_adapter = self._adapters.get("bitcoin")
+        if btc_adapter and btc_adapter.is_configured:
+            if await btc_adapter.validate_transaction(value):
+                tx = await btc_adapter.get_transaction(value)
+                if tx:
+                    return ChainIdentification(chain="bitcoin", confidence=0.99, address_type="transaction")
+            elif await btc_adapter.validate_address(value):
+                return ChainIdentification(chain="bitcoin", confidence=0.95, address_type="address")
+
+        # EVM identification: Probe Sepolia and Ethereum RPCs to identify exact network
+        is_tx = value.startswith("0x") and len(value) == 66
+        is_addr = value.startswith("0x") and len(value) == 42
+
+        if is_tx:
+            for chain_name in ["sepolia", "ethereum", "polygon", "bnb"]:
+                adapter = self._adapters.get(chain_name)
+                if adapter and adapter.is_configured:
+                    try:
+                        tx = await adapter.get_transaction(value)
+                        if tx:
+                            return ChainIdentification(chain=chain_name, confidence=0.99, address_type="transaction")
+                    except Exception:
+                        pass
+            return ChainIdentification(chain="sepolia" if "sepolia" in value.lower() else "sepolia", confidence=0.85, address_type="transaction")
+
+        if is_addr:
+            for chain_name in ["sepolia", "ethereum", "polygon", "bnb"]:
+                adapter = self._adapters.get(chain_name)
+                if adapter and adapter.is_configured:
+                    try:
+                        info = await adapter.get_address_info(value)
+                        if info and info.tx_count > 0:
+                            return ChainIdentification(chain=chain_name, confidence=0.95, address_type="address")
+                    except Exception:
+                        pass
+            return ChainIdentification(chain="sepolia", confidence=0.8, address_type="address")
 
         return None
 

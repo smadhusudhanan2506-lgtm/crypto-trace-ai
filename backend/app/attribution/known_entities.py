@@ -77,13 +77,27 @@ KNOWN_ENTITIES = [
         "confidence": 0.95,
         "source": "Etherscan verified labels",
     },
-    # DeFi
+    # DeFi & Decentralized Exchanges (Mainnet & Sepolia Testnet)
     {
         "name": "Uniswap V3",
-        "entity_type": "defi_protocol",
+        "entity_type": "exchange",
         "addresses": [
             {"address": "0xe592427a0aece92de3edee1f18e0157c05861564", "chain": "ethereum", "label": "Uniswap V3 Router", "source": "Etherscan verified contract"},
             {"address": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45", "chain": "ethereum", "label": "Uniswap V3 Router 2", "source": "Etherscan verified contract"},
+            {"address": "0x3bfa4769fb09eefc5a80d6e87c3b9c650f7ae48e", "chain": "sepolia", "label": "Uniswap V3 SwapRouter02 (Sepolia)", "source": "Uniswap official deployment"},
+            {"address": "0x7dfd4f31be6814d2906bde155c3e1b146eac1468", "chain": "sepolia", "label": "Uniswap Universal Router (Sepolia)", "source": "Uniswap official deployment"},
+            {"address": "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad", "chain": "sepolia", "label": "Uniswap Universal Router 2 (Sepolia)", "source": "Uniswap official deployment"},
+            {"address": "0xc532a74256d3db42d0bf7a0400fefdbad7694008", "chain": "sepolia", "label": "Uniswap V2 Router (Sepolia)", "source": "Uniswap official deployment"},
+        ],
+        "confidence": 0.95,
+        "source": "Verified smart contract",
+    },
+    {
+        "name": "Aave V3 Protocol",
+        "entity_type": "defi_protocol",
+        "addresses": [
+            {"address": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2", "chain": "ethereum", "label": "Aave V3 Pool (Mainnet)", "source": "Aave official"},
+            {"address": "0x6ae43d3271ff6888e7fc43fd7321a503ff738951", "chain": "sepolia", "label": "Aave V3 Pool (Sepolia)", "source": "Aave official"},
         ],
         "confidence": 0.95,
         "source": "Verified smart contract",

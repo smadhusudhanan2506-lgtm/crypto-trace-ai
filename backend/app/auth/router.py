@@ -9,6 +9,9 @@ from app.auth.schemas import UserCreate, UserLogin, TokenResponse, UserResponse
 from app.auth import service as auth_service
 from app.audit import log_action
 
+import logging
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
@@ -19,25 +22,28 @@ async def register(user_data: UserCreate, request: Request, db: AsyncSession = D
         user = await auth_service.create_user(db, user_data)
         
         # Log registration audit event in the database
-        client_ip = request.client.host if request.client else "unknown"
-        user_agent = request.headers.get("user-agent", "")
-        await log_action(
-            db=db,
-            user_id=user.id,
-            action="user.registered",
-            resource_type="user",
-            resource_id=user.id,
-            details={
-                "email": user.email,
-                "role": user.role,
-                "organization": user.organization,
-                "badge_number": user.badge_number,
-                "user_agent": user_agent,
-            },
-            ip_address=client_ip,
-        )
-        await db.commit()
-        await db.refresh(user)
+        try:
+            client_ip = request.client.host if request.client else "unknown"
+            user_agent = request.headers.get("user-agent", "")
+            await log_action(
+                db=db,
+                user_id=user.id,
+                action="user.registered",
+                resource_type="user",
+                resource_id=user.id,
+                details={
+                    "email": user.email,
+                    "role": user.role,
+                    "organization": user.organization,
+                    "badge_number": user.badge_number,
+                    "user_agent": user_agent,
+                },
+                ip_address=client_ip,
+            )
+            await db.commit()
+        except Exception as audit_err:
+            logger.warning(f"Audit log recording on registration notice: {audit_err}")
+
         return auth_service.create_user_token(user)
     except ValueError as e:
         await db.rollback()
