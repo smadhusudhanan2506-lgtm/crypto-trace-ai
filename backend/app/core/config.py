@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
 
+    # === Threat Intelligence & Chainabuse ===
+    CHAINABUSE_API_KEY: Optional[str] = None
+    TRM_LABS_API_KEY: Optional[str] = None
+
     # === Rate Limits & Constraints ===
     BLOCKCHAIN_MAX_REQUESTS_PER_SECOND: int = 5
     TRACE_MAX_HOPS: int = 100

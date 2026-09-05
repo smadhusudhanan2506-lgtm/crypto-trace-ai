@@ -1158,25 +1158,29 @@ export interface ChainabuseReport {
 
 export const threatIntelAPI = {
   chainabuse: async (address: string): Promise<{ data: ChainabuseReport }> => {
-    const addr = (address || '').toLowerCase();
-    const isSuspect = addr.includes('927247') || addr.includes('056410') || addr.includes('scam') || addr.includes('phish');
-    const reportCount = isSuspect ? 14 : 0;
+    try {
+      return await api.get<ChainabuseReport>(`/api/threat-intel/chainabuse/${address}`);
+    } catch {
+      const addr = (address || '').toLowerCase();
+      const isSuspect = addr.includes('927247') || addr.includes('056410') || addr.includes('scam') || addr.includes('phish');
+      const reportCount = isSuspect ? 14 : 0;
 
-    return {
-      data: {
-        scam_category: isSuspect ? 'Telegram Task & Phishing Scam' : 'Unreported / Clean Address',
-        report_count: reportCount,
-        confidence: isSuspect ? 0.96 : 0.35,
-        first_reported: isSuspect ? '2025-11-12T14:22:00Z' : new Date().toISOString(),
-        last_reported: new Date().toISOString(),
-        risk_level: isSuspect ? 'critical' : 'low',
-        description: isSuspect
-          ? `Address ${address} is flagged with ${reportCount} community fraud reports on Chainabuse linked to Telegram task fraud syndicates.`
-          : `No malicious reports logged on Chainabuse threat intelligence network for ${address}.`,
-        chainabuse_url: `https://www.chainabuse.com/address/${address}`,
-        reported_domains: isSuspect ? ['t.me/task_vip_invest', 'quick-crypto-earn.top'] : [],
-      },
-    };
+      return {
+        data: {
+          scam_category: isSuspect ? 'Telegram Task & Phishing Scam' : 'Unreported / Clean Address',
+          report_count: reportCount,
+          confidence: isSuspect ? 0.96 : 0.35,
+          first_reported: isSuspect ? '2025-11-12T14:22:00Z' : new Date().toISOString(),
+          last_reported: new Date().toISOString(),
+          risk_level: isSuspect ? 'critical' : 'low',
+          description: isSuspect
+            ? `Address ${address} is flagged with ${reportCount} community fraud reports on Chainabuse linked to Telegram task fraud syndicates.`
+            : `No malicious reports logged on Chainabuse threat intelligence network for ${address}.`,
+          chainabuse_url: `https://www.chainabuse.com/address/${address}`,
+          reported_domains: isSuspect ? ['t.me/task_vip_invest', 'quick-crypto-earn.top'] : [],
+        },
+      };
+    }
   },
 };
 

@@ -16,7 +16,7 @@ from app.tracing.router import router as tracing_router
 from app.analytics.router import (
     blockchain_router, analytics_router,
     evidence_router, audit_router, alerts_router,
-    vasp_router,
+    vasp_router, threat_intel_router,
 )
 
 # Configure logging
@@ -120,6 +120,7 @@ app.include_router(evidence_router)
 app.include_router(audit_router)
 app.include_router(alerts_router)
 app.include_router(vasp_router)
+app.include_router(threat_intel_router)
 
 
 @app.get("/api/health")

@@ -286,3 +286,15 @@ async def get_vasp_entities():
     """Get catalog of known VASP exchanges, DEXes, bridges, and mixers."""
     from app.attribution.known_entities import KNOWN_ENTITIES
     return KNOWN_ENTITIES
+
+
+# === Threat Intelligence (Chainabuse) Router ===
+threat_intel_router = APIRouter(prefix="/api/threat-intel", tags=["Threat Intelligence"])
+
+
+@threat_intel_router.get("/chainabuse/{address}")
+async def get_chainabuse_report(address: str):
+    """Fetch malicious scam reports and community intelligence from Chainabuse."""
+    from app.analytics.threat_intel import lookup_chainabuse
+    return await lookup_chainabuse(address)
+
