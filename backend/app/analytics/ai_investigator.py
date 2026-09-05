@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.victims.models import Victim
 from app.cases.models import Case
 from app.tracing import Trace, TraceHop, Transaction, Wallet
-from app.analytics.patterns import detect_patterns
+from app.analytics.patterns import detect_patterns, analyze_graph_topology
 import httpx
 from app.core.config import settings
 
@@ -79,8 +79,9 @@ async def run_ai_investigation(
     # 3. Cross-Victim Complaint Database Matching
     victim_matches = await _match_victim_complaints(db, list(wallet_addresses))
 
-    # 4. Pattern Detection
+    # 4. Pattern Detection & Graph Topological Analysis
     detected_patterns = detect_patterns(hops, [])
+    topology_analysis = analyze_graph_topology(hops=hops, nodes=nodes, edges=edges)
 
     # 5. Environment & Testnet vs Mainnet Assessment
     is_sepolia = "sepolia" in chain.lower() or (trace and "sepolia" in (trace.chain or "").lower())
@@ -145,6 +146,7 @@ async def run_ai_investigation(
         "chain": chain,
         "is_sepolia": is_sepolia,
         "is_demo": is_demo,
+        "topology_analysis": topology_analysis,
         "environment_badge": {
             "label": "PROTOTYPE DEMO / TESTNET (SEPOLIA)" if is_sepolia else "LIVE BLOCKCHAIN ASSET FLOW (MAINNET)",
             "type": "testnet" if is_sepolia else "mainnet",

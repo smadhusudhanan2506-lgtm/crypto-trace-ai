@@ -1443,6 +1443,132 @@ function GraphContent() {
               </div>
             </div>
 
+            {/* Graph Topology & Modus Operandi Intelligence */}
+            {aiAnalysis.topology_analysis && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-[#0d331d] pb-2">
+                  <h3 className="text-xs sm:text-sm font-bold text-white font-mono flex items-center gap-2">
+                    <BrainCircuit className="w-4 h-4 text-[#00ff66]" />
+                    <span>Graph Topology & Forensic Modus Operandi</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-[#00ff66]/20 text-[#00ff66] border border-[#00ff66]/40">
+                      {aiAnalysis.topology_analysis.topology_label}
+                    </span>
+                  </h3>
+                  <a
+                    href={`https://www.chainabuse.com/address/${selectedNode?.id || traceDetail?.start_address || ''}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 rounded-md bg-red-950/40 hover:bg-red-950/80 border border-red-500/50 text-red-300 text-[10px] font-mono font-bold flex items-center gap-1 transition-colors"
+                  >
+                    <ShieldAlert className="w-3 h-3 text-red-400" />
+                    <span>Chainabuse Threat Intelligence</span>
+                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                  </a>
+                </div>
+
+                {/* Topology Pattern Badges */}
+                <div className="flex flex-wrap gap-2">
+                  {aiAnalysis.topology_analysis.detected_patterns.map((p, idx) => (
+                    <span
+                      key={idx}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-mono font-bold border flex items-center gap-1.5",
+                        p.severity === 'critical'
+                          ? "bg-red-950/50 text-red-300 border-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.2)]"
+                          : p.severity === 'high'
+                          ? "bg-amber-950/50 text-amber-300 border-amber-500/50"
+                          : "bg-cyan-950/50 text-cyan-300 border-cyan-500/50"
+                      )}
+                    >
+                      <AlertOctagon className="w-3.5 h-3.5" />
+                      <span>[{p.code}] {p.name}</span>
+                    </span>
+                  ))}
+                  {traceDetail?.vasp_detected && (
+                    <span className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold border bg-purple-950/50 text-purple-300 border-purple-500/50 flex items-center gap-1.5">
+                      <Target className="w-3.5 h-3.5" />
+                      <span>[EXCHANGE_FUNNEL] {traceDetail.vasp_name} Terminal Exit</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Forensic Structural Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                  <div className="p-3 rounded-xl bg-[#041d0e]/80 border border-[#0d331d] font-mono">
+                    <p className="text-[10px] uppercase text-emerald-400 font-bold">Max In / Out Degree</p>
+                    <p className="text-base font-bold text-white mt-0.5">
+                      {aiAnalysis.topology_analysis.structural_metrics.max_in_degree} In / {aiAnalysis.topology_analysis.structural_metrics.max_out_degree} Out
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#041d0e]/80 border border-[#0d331d] font-mono">
+                    <p className="text-[10px] uppercase text-emerald-400 font-bold">Velocity (Avg Delta)</p>
+                    <p className="text-base font-bold text-[#00ff66] mt-0.5">
+                      {aiAnalysis.topology_analysis.structural_metrics.average_time_delta_seconds}s
+                    </p>
+                    <p className="text-[10px] text-amber-300">
+                      {aiAnalysis.topology_analysis.structural_metrics.is_bot_automated ? '⚡ Automated Bot Speed' : '👤 Human Paced'}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#041d0e]/80 border border-[#0d331d] font-mono">
+                    <p className="text-[10px] uppercase text-emerald-400 font-bold">Amount Decay</p>
+                    <p className="text-base font-bold text-cyan-400 mt-0.5">
+                      {aiAnalysis.topology_analysis.structural_metrics.amount_decay_percentage}%
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-[#041d0e]/80 border border-[#0d331d] font-mono">
+                    <p className="text-[10px] uppercase text-emerald-400 font-bold">Bridge Crossings</p>
+                    <p className="text-base font-bold text-purple-400 mt-0.5">
+                      {aiAnalysis.topology_analysis.structural_metrics.bridge_hops_count} Chains
+                    </p>
+                  </div>
+                </div>
+
+                {/* Plain-English Investigator Narrative */}
+                <div className="p-3.5 rounded-xl bg-[#011208] border border-[#00ff66]/20 font-mono space-y-1.5">
+                  <p className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#00ff66]" />
+                    <span>Predicted Scam Purpose: {aiAnalysis.topology_analysis.predicted_purpose}</span>
+                  </p>
+                  <p className="text-xs text-slate-300 leading-relaxed font-sans whitespace-pre-line">
+                    {aiAnalysis.topology_analysis.investigator_explanation}
+                  </p>
+                </div>
+
+                {/* White Money Contrast */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  <div className="p-3 rounded-xl bg-red-950/20 border border-red-500/30 font-mono text-xs space-y-1">
+                    <p className="font-bold text-red-400 flex items-center gap-1.5 text-[10px] uppercase">
+                      <ShieldAlert className="w-3 h-3" />
+                      <span>Illicit Deviations</span>
+                    </p>
+                    <ul className="space-y-0.5 text-[10px] text-slate-300">
+                      {aiAnalysis.topology_analysis.white_money_contrast.illicit_indicators.map((ind, i) => (
+                        <li key={i} className="flex items-start gap-1">
+                          <span className="text-red-400 font-bold">•</span>
+                          <span>{ind}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 font-mono text-xs space-y-1">
+                    <p className="font-bold text-emerald-400 flex items-center gap-1.5 text-[10px] uppercase">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Commercial Benchmark</span>
+                    </p>
+                    <ul className="space-y-0.5 text-[10px] text-slate-300">
+                      {aiAnalysis.topology_analysis.white_money_contrast.commercial_indicators.map((ind, i) => (
+                        <li key={i} className="flex items-start gap-1">
+                          <span className="text-emerald-400 font-bold">•</span>
+                          <span>{ind}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Cross-Victim Complaint Database Matches */}
             <div className="space-y-3">
               <div className="flex items-center justify-between border-b border-[#0d331d] pb-2">

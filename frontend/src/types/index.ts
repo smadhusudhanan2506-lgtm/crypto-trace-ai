@@ -284,6 +284,7 @@ export interface AIAssessment {
     evidence: Record<string, unknown>;
     risk_points: number;
   }>;
+  topology_analysis?: GraphTopologyAnalysis;
   police_action_plan: Array<{
     priority: string;
     title: string;
@@ -292,6 +293,41 @@ export interface AIAssessment {
     legal_basis: string;
   }>;
   advisory_disclaimer: string;
+}
+
+export interface GraphTopologyAnalysis {
+  primary_topology: string;
+  topology_label: string;
+  predicted_purpose: string;
+  confidence: number;
+  risk_level: 'critical' | 'high' | 'medium' | 'low';
+  structural_metrics: {
+    max_in_degree: number;
+    max_out_degree: number;
+    average_time_delta_seconds: number;
+    amount_decay_percentage: number;
+    bridge_hops_count: number;
+    is_bot_automated: boolean;
+    total_nodes: number;
+    total_edges: number;
+  };
+  detected_patterns: Array<{
+    pattern_type: string;
+    name: string;
+    code: string;
+    description: string;
+    severity: string;
+    confidence: number;
+    risk_points: number;
+    evidence: Record<string, unknown>;
+    predicted_purpose?: string;
+  }>;
+  investigator_explanation: string;
+  white_money_contrast: {
+    is_likely_legitimate: boolean;
+    commercial_indicators: string[];
+    illicit_indicators: string[];
+  };
 }
 
 export interface GraphData {
