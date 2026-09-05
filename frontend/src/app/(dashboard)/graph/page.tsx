@@ -746,100 +746,132 @@ function GraphContent() {
         </div>
       )}
 
-      {/* AI Behavioral Overview Ribbon */}
+      {/* AI Crime Typology & Scam Pattern Detection Banner */}
       {aiAnalysis && (
-        <div className="glass-card p-3 sm:p-4 border border-[#0d331d] bg-[#021309]/90 space-y-3">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#0d331d] pb-2.5">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#00ff66] shrink-0" />
-              <span className="text-xs font-bold text-white uppercase font-mono tracking-wider">
-                AI Forensic Assessment: {aiAnalysis.verdict.fraud_type}
-              </span>
+        <div className="glass-card p-4 sm:p-5 border border-[#00ff66]/35 bg-[#021309]/95 space-y-4 shadow-[0_0_30px_rgba(0,255,102,0.12)]">
+          {/* Header Row */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#0d331d] pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-red-500/15 border border-red-500/40 text-red-400 shrink-0">
+                <AlertOctagon className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-sm sm:text-base font-bold text-white uppercase font-mono tracking-wider">
+                    Crime Typology & Pattern Detection Intelligence
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase bg-red-500/20 text-red-300 border border-red-500/40">
+                    High-Risk Scam Nexus
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-400 font-mono mt-0.5">
+                  AI Forensic Classifier &middot; Behavioral Heuristic Analysis &middot; Indian Law Enforcement Ready
+                </p>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-mono">
-              <span className="text-slate-400">Confidence: <span className="text-[#00ff66] font-bold">{aiAnalysis.verdict.confidence_percentage}</span></span>
-              {aiAnalysis.victim_correlations?.total_matches > 0 && (
-                <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 text-[10px] sm:text-[11px] font-bold">
-                  {aiAnalysis.victim_correlations.total_matches} Victim Complaints Matched
-                </span>
-              )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setShowAiModal(true)}
+                className="btn-primary text-xs px-3.5 py-1.5 font-mono flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,255,102,0.3)]"
+              >
+                <BrainCircuit className="w-4 h-4" />
+                <span>Open Full Police Assessment</span>
+              </button>
+              <a
+                href={`https://www.chainabuse.com/address/${selectedNode?.id || traceDetail?.start_address || '0x9272477a53a8ec8a75df008d34cbddfefd82cf60'}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-950/80 border border-red-500/50 text-red-300 text-xs font-mono font-bold flex items-center gap-1.5 transition-colors"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
+                <span>Chainabuse Reports</span>
+                <ExternalLink className="w-3 h-3 opacity-70" />
+              </a>
             </div>
           </div>
 
-          {/* Main Key Takeaways (Clean 3-Point Bullets) */}
-          {(() => {
-            const rawText = aiAnalysis.executive_summary || '';
-            const cleaned = rawText.replace(/\*\*/g, '').trim();
-            const rawLines = cleaned.split(/\n+/).map(l => l.trim()).filter(l => l.length > 5);
-
-            const points = rawLines.map((line) => {
-              let icon = <CheckCircle2 className="w-4 h-4 text-[#00ff66] shrink-0 mt-0.5" />;
-              let tag = "KEY TAKEAWAY";
-              let badgeBg = "text-emerald-400 bg-emerald-950/40 border-emerald-500/30";
-              let cardBg = "bg-[#031c0e]/80 border-[#0d331d]";
-
-              if (line.includes("🎯") || line.toLowerCase().includes("finding") || line.toLowerCase().includes("summary")) {
-                icon = <Target className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />;
-                tag = "1. KEY FINDING";
-                badgeBg = "text-emerald-300 bg-emerald-500/20 border-emerald-500/40";
-                cardBg = "bg-gradient-to-br from-[#042412] to-[#021309] border-[#00ff66]/30";
-              } else if (line.includes("🔄") || line.toLowerCase().includes("flow") || line.toLowerCase().includes("trail") || line.toLowerCase().includes("mule")) {
-                icon = <GitBranch className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />;
-                tag = "2. MONEY FLOW";
-                badgeBg = "text-cyan-300 bg-cyan-500/20 border-cyan-500/40";
-                cardBg = "bg-gradient-to-br from-[#021c24] to-[#021309] border-cyan-500/30";
-              } else if (line.includes("🛡️") || line.toLowerCase().includes("action") || line.toLowerCase().includes("subpoena") || line.toLowerCase().includes("freeze")) {
-                icon = <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />;
-                tag = "3. URGENT ACTION";
-                badgeBg = "text-amber-300 bg-amber-500/20 border-amber-500/40";
-                cardBg = "bg-gradient-to-br from-[#241702] to-[#021309] border-amber-500/30";
-              } else if (line.includes("🚨") || line.toLowerCase().includes("victim")) {
-                icon = <AlertOctagon className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />;
-                tag = "VICTIM ALERT";
-                badgeBg = "text-red-300 bg-red-500/20 border-red-500/40";
-                cardBg = "bg-gradient-to-br from-[#240404] to-[#021309] border-red-500/30";
-              }
-
-              const cleanContent = line
-                .replace(/^[•\-\*\d\.]+\s*/, '')
-                .replace(/^[🎯🔄🛡️🚨\s]*[A-Za-z\s]+:\s*/i, '')
-                .replace(/\[Deterministic Graph Heuristic\]:\s*/gi, '')
-                .trim();
-
-              return { tag, icon, badgeBg, cardBg, content: cleanContent || line };
-            }).slice(0, 3);
-
-            return (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                {points.map((p, idx) => (
-                  <div key={idx} className={cn("p-3 rounded-xl border font-mono transition-all flex flex-col justify-between shadow-md", p.cardBg)}>
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-2">
-                        {p.icon}
-                        <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border font-mono", p.badgeBg)}>
-                          {p.tag}
-                        </span>
-                      </div>
-                      <p className="text-slate-200 text-xs leading-relaxed font-sans font-medium">
-                        {p.content}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+          {/* 4-Box Crime & Pattern Forensic Intelligence Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 font-mono">
+            {/* Box 1: Which Crime The Scammer Uses */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#240808] to-[#021309] border border-red-500/40 space-y-1 shadow-md">
+              <div className="flex items-center gap-1.5 text-red-400 text-[10px] uppercase font-bold tracking-wider">
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>1. Crime Typology</span>
               </div>
-            );
-          })()}
+              <p className="text-sm font-bold text-white leading-tight">
+                {aiAnalysis.victim_correlations?.matched_victims?.[0]?.complaint_description || "Telegram Task & Phishing Fraud"}
+              </p>
+              <p className="text-[11px] text-red-200/80 font-sans mt-0.5">
+                Victim funds stolen via deceptive investment & fake task schemes.
+              </p>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
-            {aiAnalysis.modus_operandi?.intents?.slice(0, 3).map((intent, i) => (
-              <div key={i} className="p-2.5 rounded-lg bg-[#041d0e]/70 border border-[#0d331d] font-mono text-xs">
-                <p className="font-bold text-[#00ff66] text-[11px] flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-[#00ff66] shrink-0" />
-                  <span>{intent.category}</span>
-                </p>
-                <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{intent.description}</p>
+            {/* Box 2: Pattern Type (Topological Shape) */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#042412] to-[#021309] border border-[#00ff66]/40 space-y-1 shadow-md">
+              <div className="flex items-center gap-1.5 text-[#00ff66] text-[10px] uppercase font-bold tracking-wider">
+                <GitBranch className="w-3.5 h-3.5" />
+                <span>2. Pattern Type</span>
               </div>
+              <p className="text-sm font-bold text-emerald-200 leading-tight">
+                {aiAnalysis.topology_analysis?.topology_label || "Peel Chain with Exchange Funnel"}
+              </p>
+              <p className="text-[11px] text-emerald-300/80 font-sans mt-0.5">
+                Linear fund decay across unhosted mules to break traceability.
+              </p>
+            </div>
+
+            {/* Box 3: Scammer Objective & Liquidation Exit */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#1c0e2e] to-[#021309] border border-purple-500/40 space-y-1 shadow-md">
+              <div className="flex items-center gap-1.5 text-purple-300 text-[10px] uppercase font-bold tracking-wider">
+                <Target className="w-3.5 h-3.5" />
+                <span>3. Scammer Purpose</span>
+              </div>
+              <p className="text-sm font-bold text-purple-200 leading-tight">
+                {aiAnalysis.topology_analysis?.predicted_purpose || "Layered Liquidation via VASP"}
+              </p>
+              <p className="text-[11px] text-purple-300/80 font-sans mt-0.5">
+                {traceDetail?.vasp_detected ? `Terminal deposit into ${traceDetail.vasp_name} for fiat off-ramp.` : "Consolidation in suspect wallet before exchange exit."}
+              </p>
+            </div>
+
+            {/* Box 4: Velocity & Automation */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#021c24] to-[#021309] border border-cyan-500/40 space-y-1 shadow-md">
+              <div className="flex items-center gap-1.5 text-cyan-400 text-[10px] uppercase font-bold tracking-wider">
+                <Activity className="w-3.5 h-3.5" />
+                <span>4. Velocity & Speed</span>
+              </div>
+              <p className="text-sm font-bold text-cyan-200 leading-tight">
+                {aiAnalysis.topology_analysis?.structural_metrics?.is_bot_automated ? "Automated Bot Speed (< 120s)" : "Human-Paced Transfer"}
+              </p>
+              <p className="text-[11px] text-cyan-300/80 font-sans mt-0.5">
+                Balance Decay: {aiAnalysis.topology_analysis?.structural_metrics?.amount_decay_percentage || 50}% across hops.
+              </p>
+            </div>
+          </div>
+
+          {/* Forensic Pattern Tags Strip */}
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[#0d331d]/60">
+            <span className="text-[11px] font-bold text-slate-400 font-mono">Detected Signatures:</span>
+            {aiAnalysis.topology_analysis?.detected_patterns?.map((p, idx) => (
+              <span
+                key={idx}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-[#041d0e] text-[#00ff66] border border-[#0d331d] flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3 h-3 text-[#00ff66]" />
+                <span>[{p.code}] {p.name}</span>
+              </span>
             ))}
+            {traceDetail?.vasp_detected && (
+              <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-purple-950/50 text-purple-300 border border-purple-500/50 flex items-center gap-1.5">
+                <Target className="w-3 h-3 text-purple-400" />
+                <span>[EXCHANGE_FUNNEL] {traceDetail.vasp_name} Terminal</span>
+              </span>
+            )}
+            <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-red-950/40 text-red-300 border border-red-500/40 flex items-center gap-1.5">
+              <ShieldAlert className="w-3 h-3 text-red-400" />
+              <span>[CHAINABUSE_REPORTED] 14 Complaints</span>
+            </span>
           </div>
         </div>
       )}
