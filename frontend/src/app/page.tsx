@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import MatrixBackground from '@/components/layout/MatrixBackground';
 import { authAPI } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth';
-import { Fingerprint, Eye, EyeOff, ArrowRight, UserPlus, LogIn, ShieldAlert, Sparkles, UserCheck } from 'lucide-react';
+import { Fingerprint, Eye, EyeOff, ArrowRight, UserPlus, LogIn, ShieldAlert } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,21 +22,6 @@ export default function LoginPage() {
     organization: '',
     badge_number: '',
   });
-
-  const handleQuickLogin = async (email: string, pass: string) => {
-    setError('');
-    setLoading(true);
-    try {
-      const res = await authAPI.login({ email, password: pass });
-      login(res.data.access_token, res.data.user);
-      router.push('/dashboard');
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { detail?: string } } };
-      setError(axiosErr.response?.data?.detail || 'Authentication failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,7 +159,7 @@ export default function LoginPage() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="input-field text-sm"
-                placeholder="smadhusudhanan2506@gmail.com"
+                placeholder="Enter your email address..."
               />
             </div>
 
@@ -215,39 +200,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Access / One-Click Logins */}
-          <div className="mt-5 pt-4 border-t border-[#0d331d]/80">
-            <p className="text-[11px] text-emerald-400/80 font-mono uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#00ff66]" />
-              Quick 1-Click Access
-            </p>
-            <div className="space-y-1.5">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('smadhusudhanan2506@gmail.com', '123456')}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[#041d0e]/80 border border-[#00ff66]/30 hover:border-[#00ff66] hover:bg-[#072d16] text-xs text-emerald-200 transition-all group"
-              >
-                <span className="flex items-center gap-2 font-medium">
-                  <UserCheck className="w-3.5 h-3.5 text-[#00ff66]" />
-                  Madhusudhanan S (Your Account)
-                </span>
-                <span className="font-mono text-[10px] text-emerald-400 group-hover:text-white">123456 &rarr;</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('investigator@cryptotrace.ai', 'demo123')}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-[#041d0e]/50 border border-[#0d331d] hover:border-[#00ff66]/60 hover:bg-[#072d16] text-xs text-emerald-300/80 transition-all group"
-              >
-                <span className="flex items-center gap-2">
-                  <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  Inspector Raj Kumar (Demo)
-                </span>
-                <span className="font-mono text-[10px] text-emerald-500 group-hover:text-white">demo123 &rarr;</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Demo credentials hint */}
