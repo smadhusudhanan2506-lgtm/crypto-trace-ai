@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { tracingAPI, analyticsAPI } from '@/lib/api';
@@ -352,9 +352,9 @@ function GraphContent() {
     link.click();
   };
 
-  // Build Hierarchical DAG Layers (Victim -> A -> [B, C] -> D -> VASP)
-  const getDagLayers = () => {
-    if (!graphData || !graphData.nodes.length) return [];
+  // Build Hierarchical DAG Layers (Victim -> A -> [B, C] -> D -> VASP) with strict cycle & loop safety
+  const getDagLayers = useCallback(() => {
+    if (!graphData || !graphData.nodes || graphData.nodes.length === 0) return [];
 
     const nodes = graphData.nodes || [];
     const edges = graphData.edges || [];
@@ -365,19 +365,29 @@ function GraphContent() {
     const inEdgesMap: Record<string, GraphEdge[]> = {};
 
     nodes.forEach((n) => {
-      inDegree[n.id.toLowerCase()] = 0;
-      outEdgesMap[n.id.toLowerCase()] = [];
-      inEdgesMap[n.id.toLowerCase()] = [];
+      const id = n.id.toLowerCase();
+      inDegree[id] = 0;
+      outEdgesMap[id] = [];
+      inEdgesMap[id] = [];
     });
 
     edges.forEach((e) => {
-      const src = e.source.toLowerCase();
-      const tgt = e.target.toLowerCase();
+      const src = (e.source || '').toLowerCase();
+      const tgt = (e.target || '').toLowerCase();
       if (inDegree[tgt] !== undefined) {
         inDegree[tgt] = (inDegree[tgt] || 0) + 1;
       }
       if (outEdgesMap[src]) outEdgesMap[src].push(e);
       if (inEdgesMap[tgt]) inEdgesMap[tgt].push(e);
+    });
+
+    // Determine node level: First prioritize node.hop if already defined
+    const nodeLevel: Record<string, number> = {};
+    nodes.forEach((n) => {
+      const id = n.id.toLowerCase();
+      if (typeof n.hop === 'number' && !isNaN(n.hop)) {
+        nodeLevel[id] = n.hop;
+      }
     });
 
     // Find root nodes (Victim / start_address / inDegree === 0)
@@ -398,35 +408,47 @@ function GraphContent() {
       roots.push(nodes[0].id.toLowerCase());
     }
 
-    // Assign topological depth level via BFS / longest path
-    const nodeLevel: Record<string, number> = {};
-    roots.forEach((r) => { nodeLevel[r] = 0; });
+    // Run Cycle-Safe BFS with visited tracking
+    const queue: Array<{ id: string; depth: number }> = roots.map((r) => {
+      if (nodeLevel[r] === undefined) nodeLevel[r] = 0;
+      return { id: r, depth: nodeLevel[r] || 0 };
+    });
 
-    const queue = [...roots];
-    while (queue.length > 0) {
-      const curr = queue.shift()!;
-      const currLvl = nodeLevel[curr] ?? 0;
+    const visitedInBfs = new Set<string>();
+    const maxSafetyDepth = 10;
+    let safetyCounter = 0;
+    const maxSafetyIterations = nodes.length * 4 + 50;
+
+    while (queue.length > 0 && safetyCounter < maxSafetyIterations) {
+      safetyCounter++;
+      const { id: curr, depth: currLvl } = queue.shift()!;
+      if (visitedInBfs.has(curr) && nodeLevel[curr] !== undefined) continue;
+      visitedInBfs.add(curr);
+
       const outs = outEdgesMap[curr] || [];
       for (const edge of outs) {
-        const tgt = edge.target.toLowerCase();
-        const nextLvl = currLvl + 1;
-        if (nodeLevel[tgt] === undefined || nodeLevel[tgt] < nextLvl) {
+        const tgt = (edge.target || '').toLowerCase();
+        if (!tgt || tgt === curr) continue;
+
+        const nextLvl = Math.min(currLvl + 1, maxSafetyDepth);
+        if (nodeLevel[tgt] === undefined) {
           nodeLevel[tgt] = nextLvl;
-          queue.push(tgt);
+          queue.push({ id: tgt, depth: nextLvl });
         }
       }
     }
 
-    // Fallback for unvisited nodes based on node.hop
-    nodes.forEach((n) => {
+    // Fallback for any unvisited nodes based on node.hop or default
+    nodes.forEach((n, idx) => {
       const id = n.id.toLowerCase();
       if (nodeLevel[id] === undefined) {
-        nodeLevel[id] = n.hop !== undefined ? n.hop : 1;
+        nodeLevel[id] = typeof n.hop === 'number' ? Math.min(n.hop, maxSafetyDepth) : Math.min(idx, maxSafetyDepth);
       }
     });
 
-    // Group nodes by level
-    const maxLevel = Math.max(0, ...Object.values(nodeLevel));
+    // Group nodes by level (cap maximum levels to 10 to prevent large iteration loops)
+    const levelValues = Object.values(nodeLevel);
+    const maxLevel = levelValues.length > 0 ? Math.min(Math.max(0, ...levelValues), 10) : 0;
     const layers: Array<{
       level: number;
       label: string;
@@ -437,9 +459,8 @@ function GraphContent() {
     for (let l = 0; l <= maxLevel; l++) {
       const layerNodes = nodes.filter((n) => (nodeLevel[n.id.toLowerCase()] ?? 0) === l);
       if (layerNodes.length > 0) {
-        // Collect edges going from this layer to next layer(s)
         const layerNodeIds = new Set(layerNodes.map((n) => n.id.toLowerCase()));
-        const layerOutEdges = edges.filter((e) => layerNodeIds.has(e.source.toLowerCase()));
+        const layerOutEdges = edges.filter((e) => layerNodeIds.has((e.source || '').toLowerCase()));
 
         let layerLabel = `HOP ${l}`;
         if (l === 0) layerLabel = 'VICTIM SOURCE';
@@ -458,7 +479,7 @@ function GraphContent() {
     }
 
     return layers;
-  };
+  }, [graphData, traceDetail]);
 
   const getNodeRoleInfo = (node: GraphNode, levelIdx: number, totalLevels: number, isFirst: boolean, isLast: boolean) => {
     const idLower = node.id.toLowerCase();
@@ -535,6 +556,8 @@ function GraphContent() {
     };
   };
 
+  const dagLayers = useMemo(() => getDagLayers(), [getDagLayers]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -542,8 +565,6 @@ function GraphContent() {
       </div>
     );
   }
-
-  const dagLayers = getDagLayers();
 
   return (
     <div className="space-y-4 animate-fade-in">
