@@ -257,29 +257,118 @@ export function checkKnownVasp(address: string): { isVasp: boolean; name: string
   return { isVasp: false, name: '', entityType: '', confidence: 0 };
 }
 
-// In-memory & LocalStorage trace cache
+// ─── LocalStorage Persistence for Traces, Cases, and Victims ───────────────
 const LOCAL_TRACES: Record<string, TraceDetail> = {};
+const LOCAL_CASES: Record<string, Case> = {};
+const LOCAL_VICTIMS: Record<string, Victim> = {};
 
-function initLocalTraces() {
+const INITIAL_CASE: Case = {
+  id: 'case-demo-1',
+  case_number: 'CR/2026/CYB-9182',
+  title: 'Operation Golden Ledger — Multi-Victim Sepolia Phishing Nexus',
+  description: 'Telegram investment fraud syndication layering through unhosted mules and Uniswap router.',
+  status: 'under_investigation',
+  priority: 'high',
+  investigator_id: 'usr-madhu-001',
+  organization: 'Cyber Crime Investigation Cell',
+  complaint_source: 'NCRP Portal',
+  reported_amount: 185000,
+  currency: 'INR',
+  cryptocurrency: 'ETH',
+  blockchain: 'sepolia',
+  suspect_wallet: '0x9272477a53a8ec8a75df008d34cbddfefd82cf60',
+  initial_txid: '0xe19bc4e3113382f59b61296c87cf69bef8ea584d4b94852f5bcd28c2fb8ea06d',
+  risk_score: 92,
+  priority_score: 88,
+  victim_count: 1,
+  wallet_count: 3,
+  transaction_count: 2,
+  funds_traced: 185000,
+  vasp_identified: true,
+  vasp_name: 'Uniswap V3',
+  vasp_confidence: 0.98,
+  is_demo: false,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
+
+const INITIAL_VICTIM: Victim = {
+  id: 'vic-1',
+  case_id: 'case-demo-1',
+  victim_name: 'Rajesh Kumar (MetaMask Sepolia Victim)',
+  victim_id_type: 'aadhaar',
+  victim_id_number: 'XXXX-XXXX-8821',
+  contact_email: 'rajesh.k@example.com',
+  contact_phone: '+91 98112 34567',
+  wallet_address: '0x056410ce3ab3ca36091c194547efb40f1a374cb9',
+  tx_hash: '0xe19bc4e3113382f59b61296c87cf69bef8ea584d4b94852f5bcd28c2fb8ea06d',
+  amount_lost: 185000,
+  currency: 'INR',
+  date_reported: new Date().toISOString(),
+  complaint_reference: '2026/NCRP/918234',
+  description: 'Task scam investment on Telegram',
+  created_at: new Date().toISOString(),
+};
+
+export function initLocalStore() {
   if (typeof window !== 'undefined') {
     try {
-      const saved = localStorage.getItem('cryptotrace_saved_traces');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed === 'object' && parsed !== null) {
-          Object.assign(LOCAL_TRACES, parsed);
-        }
-      }
+      const savedTraces = localStorage.getItem('cryptotrace_saved_traces');
+      if (savedTraces) Object.assign(LOCAL_TRACES, JSON.parse(savedTraces));
     } catch {}
+
+    try {
+      const savedCases = localStorage.getItem('cryptotrace_saved_cases');
+      if (savedCases) {
+        Object.assign(LOCAL_CASES, JSON.parse(savedCases));
+      } else {
+        LOCAL_CASES[INITIAL_CASE.id] = INITIAL_CASE;
+      }
+    } catch {
+      LOCAL_CASES[INITIAL_CASE.id] = INITIAL_CASE;
+    }
+
+    try {
+      const savedVictims = localStorage.getItem('cryptotrace_saved_victims');
+      if (savedVictims) {
+        Object.assign(LOCAL_VICTIMS, JSON.parse(savedVictims));
+      } else {
+        LOCAL_VICTIMS[INITIAL_VICTIM.id] = INITIAL_VICTIM;
+      }
+    } catch {
+      LOCAL_VICTIMS[INITIAL_VICTIM.id] = INITIAL_VICTIM;
+    }
+  } else {
+    LOCAL_CASES[INITIAL_CASE.id] = INITIAL_CASE;
+    LOCAL_VICTIMS[INITIAL_VICTIM.id] = INITIAL_VICTIM;
   }
 }
-initLocalTraces();
+initLocalStore();
+export const initLocalTraces = initLocalStore;
 
-function persistTrace(trace: TraceDetail) {
+export function persistTrace(trace: TraceDetail) {
   LOCAL_TRACES[trace.id] = trace;
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem('cryptotrace_saved_traces', JSON.stringify(LOCAL_TRACES));
+    } catch {}
+  }
+}
+
+export function persistCase(c: Case) {
+  LOCAL_CASES[c.id] = c;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('cryptotrace_saved_cases', JSON.stringify(LOCAL_CASES));
+    } catch {}
+  }
+}
+
+export function persistVictim(v: Victim) {
+  LOCAL_VICTIMS[v.id] = v;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('cryptotrace_saved_victims', JSON.stringify(LOCAL_VICTIMS));
     } catch {}
   }
 }
@@ -719,7 +808,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
               const nextHop = current.hop + 1;
               const nextVaspCheck = checkKnownVasp(recipient);
               const isNextVasp = nextVaspCheck.isVasp;
-              const outVal = outTx.value > 0 ? outTx.value : primaryTx.value * 0.5;
+              const outVal = outTx.value;
               totalTracedValue += outVal;
 
               if (isNextVasp) {
@@ -827,7 +916,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
         const sender = (inTx.from || '').toLowerCase();
         if (!sender || visitedNodes.has(sender)) continue;
 
-        const inVal = inTx.value > 0 ? inTx.value : 0.05;
+        const inVal = inTx.value;
         totalTracedValue += inVal;
         visitedTxs.add((inTx.hash || '').toLowerCase());
 
@@ -863,7 +952,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
         visitedTxs.add((outTx.hash || '').toLowerCase());
 
         const outVasp = checkKnownVasp(recipient);
-        const outVal = outTx.value > 0 ? outTx.value : 0.05;
+        const outVal = outTx.value;
         totalTracedValue += outVal;
 
         if (outVasp.isVasp) {
@@ -914,7 +1003,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
 
           const nextHop = curr.hop + 1;
           const nextVasp = checkKnownVasp(nextRecipient);
-          const nextVal = nTx.value > 0 ? nTx.value : 0.02;
+          const nextVal = nTx.value;
           totalTracedValue += nextVal;
 
           if (nextVasp.isVasp) {
@@ -955,6 +1044,17 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
       totalTracedValue = state.balance;
     }
   }
+
+  // Real victim matching against database of reported complaints
+  initLocalStore();
+  const allSavedVictims = Object.values(LOCAL_VICTIMS);
+  const matchedVictimsList = allSavedVictims.filter(v => {
+    const vAddr = (v.wallet_address || '').toLowerCase();
+    const vTx = (v.tx_hash || '').toLowerCase();
+    return nodes.some(n => n.id.toLowerCase() === vAddr) ||
+           edges.some(e => e.tx_hash.toLowerCase() === vTx || e.source.toLowerCase() === vAddr || e.target.toLowerCase() === vAddr);
+  });
+  const hasVictimMatch = matchedVictimsList.length > 0;
 
   // Determine isSepolia
   const isSepolia = chain === 'sepolia';
@@ -1308,23 +1408,23 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
           max_single_transfer: totalTracedValue,
         },
         victim_correlations: {
-          total_matches: 2,
-          has_cross_victim_link: true,
-          summary: `Matched suspect wallet ${suspectDisplay} in criminal intelligence database`,
-          matched_victims: [
-            {
-              victim_id: 'vic-1',
-              case_number: 'CR/2026/CYB-9182',
-              case_title: 'Operation Golden Ledger',
-              matched_address: suspectNode ? suspectNode.id : startAddress,
-              amount_lost: 85000,
-              currency: 'INR',
-              cryptocurrency: nativeAsset,
-              complaint_date: new Date().toISOString(),
-              complaint_description: 'Telegram task & phishing fraud',
-              match_type: 'direct_inflow',
-            },
-          ],
+          total_matches: matchedVictimsList.length,
+          has_cross_victim_link: hasVictimMatch,
+          summary: hasVictimMatch
+            ? `Matched ${matchedVictimsList.length} registered NCRP victim complaint${matchedVictimsList.length > 1 ? 's' : ''} for address ${suspectDisplay}`
+            : `No prior victim complaints registered for address ${suspectDisplay}`,
+          matched_victims: matchedVictimsList.map(v => ({
+            victim_id: v.id,
+            case_number: v.complaint_reference || 'CR/2026/CYB-9182',
+            case_title: v.description || 'Reported Fraud Complaint',
+            matched_address: v.wallet_address || (suspectNode ? suspectNode.id : startAddress),
+            amount_lost: v.amount_lost || 0,
+            currency: v.currency || 'INR',
+            cryptocurrency: nativeAsset,
+            complaint_date: v.date_reported || new Date().toISOString(),
+            complaint_description: v.description || 'Cyber fraud loss complaint',
+            match_type: 'direct_inflow',
+          })),
         },
         behavioral_patterns: [
           {
@@ -1510,69 +1610,117 @@ export const authAPI = {
 // ─── Cases ───────────────────────────────────────────────────────────────────
 export const casesAPI = {
   list: async (params?: { skip?: number; limit?: number; status?: string; priority?: string }): Promise<{ data: CaseListResponse }> => {
+    initLocalStore();
     try {
-      return await api.get<CaseListResponse>('/api/cases', { params });
-    } catch {
-      const defaultCases: Case[] = [
-        {
-          id: 'case-demo-1',
-          case_number: 'CR/2026/CYB-9182',
-          title: 'Operation Golden Ledger — Multi-Victim Sepolia Phishing Nexus',
-          description: 'Telegram investment fraud syndication layering through unhosted mules and Uniswap router.',
-          status: 'under_investigation',
-          priority: 'high',
-          investigator_id: 'usr-madhu-001',
-          organization: 'Cyber Crime Investigation Cell',
-          complaint_source: 'NCRP Portal',
-          reported_amount: 185000,
-          currency: 'INR',
-          cryptocurrency: 'ETH',
-          blockchain: 'sepolia',
-          suspect_wallet: '0x9272477a53a8ec8a75df008d34cbddfefd82cf60',
-          initial_txid: '0xe19bc4e3113382f59b61296c87cf69bef8ea584d4b94852f5bcd28c2fb8ea06d',
-          risk_score: 92,
-          priority_score: 88,
-          victim_count: 2,
-          wallet_count: 4,
-          transaction_count: 6,
-          funds_traced: 185000,
-          vasp_identified: true,
-          vasp_name: 'Uniswap V3',
-          vasp_confidence: 0.98,
-          is_demo: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
-      return { data: { cases: defaultCases, total: defaultCases.length } };
-    }
+      const res = await api.get<CaseListResponse>('/api/cases', { params, timeout: 1500 });
+      if (res.data?.cases && res.data.cases.length > 0) {
+        res.data.cases.forEach(c => persistCase(c));
+        return res;
+      }
+    } catch {}
+
+    const caseList = Object.values(LOCAL_CASES);
+    return { data: { cases: caseList, total: caseList.length } };
   },
   get: async (id: string): Promise<{ data: Case }> => {
+    initLocalStore();
     try {
-      return await api.get<Case>(`/api/cases/${id}`);
-    } catch {
-      const listRes = await casesAPI.list();
-      return { data: listRes.data.cases[0] };
+      const res = await api.get<Case>(`/api/cases/${id}`, { timeout: 1500 });
+      if (res.data?.id) {
+        persistCase(res.data);
+        return res;
+      }
+    } catch {}
+
+    if (LOCAL_CASES[id]) {
+      return { data: LOCAL_CASES[id] };
     }
+    const first = Object.values(LOCAL_CASES)[0] || INITIAL_CASE;
+    return { data: first };
   },
-  create: (data: CaseCreate) => api.post<Case>('/api/cases', data),
-  update: (id: string, data: Partial<Case>) => api.patch<Case>(`/api/cases/${id}`, data),
-  stats: async (): Promise<{ data: DashboardStats }> => {
+  create: async (data: CaseCreate): Promise<{ data: Case }> => {
+    initLocalStore();
     try {
-      const res = await api.get<any>('/api/cases/stats');
-      if (res.data) {
+      const res = await api.post<Case>('/api/cases', data, { timeout: 2000 });
+      if (res.data?.id) {
+        persistCase(res.data);
+        return res;
+      }
+    } catch {}
+
+    const newCase: Case = {
+      id: `case-${Date.now()}`,
+      case_number: data.case_number || `CR/2026/CYB-${Math.floor(1000 + Math.random() * 9000)}`,
+      title: data.title || 'New Investigation Case',
+      description: data.description || '',
+      status: 'under_investigation',
+      priority: 'high',
+      investigator_id: 'usr-madhu-001',
+      organization: data.organization || 'Cyber Crime Investigation Cell',
+      complaint_source: data.complaint_source || 'NCRP Portal',
+      reported_amount: data.reported_amount || 0,
+      currency: data.currency || 'INR',
+      cryptocurrency: data.cryptocurrency || 'ETH',
+      blockchain: data.blockchain || 'sepolia',
+      suspect_wallet: data.suspect_wallet || '',
+      initial_txid: data.initial_txid || '',
+      risk_score: 85,
+      priority_score: 80,
+      victim_count: data.victim_count || 1,
+      wallet_count: 2,
+      transaction_count: 1,
+      funds_traced: data.reported_amount || 0,
+      vasp_identified: false,
+      vasp_name: '',
+      vasp_confidence: 0,
+      is_demo: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    persistCase(newCase);
+    return { data: newCase };
+  },
+  update: async (id: string, data: Partial<Case>): Promise<{ data: Case }> => {
+    initLocalStore();
+    try {
+      const res = await api.patch<Case>(`/api/cases/${id}`, data, { timeout: 2000 });
+      if (res.data?.id) {
+        persistCase(res.data);
+        return res;
+      }
+    } catch {}
+
+    const existing = LOCAL_CASES[id] || INITIAL_CASE;
+    const updated = { ...existing, ...data, updated_at: new Date().toISOString() };
+    persistCase(updated);
+    return { data: updated };
+  },
+  stats: async (): Promise<{ data: DashboardStats }> => {
+    initLocalStore();
+    const cases = Object.values(LOCAL_CASES);
+    const victims = Object.values(LOCAL_VICTIMS);
+
+    const activeCases = cases.filter(c => c.status !== 'closed').length;
+    const totalReported = cases.reduce((sum, c) => sum + (Number(c.reported_amount) || 0), 0) ||
+                          victims.reduce((sum, v) => sum + (Number(v.amount_lost) || 0), 0);
+    const totalTraced = cases.reduce((sum, c) => sum + (Number(c.funds_traced) || 0), 0) || totalReported;
+    const vaspFound = cases.filter(c => c.vasp_identified).length;
+
+    try {
+      const res = await api.get<any>('/api/cases/stats', { timeout: 1500 });
+      if (res.data && res.data.total_cases > 0) {
         const d = res.data;
         return {
           data: {
-            total_cases: d.total_cases ?? 12,
-            active_cases: d.active_cases ?? 8,
-            total_victims: d.total_victims ?? 24,
-            total_amount_reported: d.total_amount_reported ?? d.total_reported_value ?? 4850000,
-            total_funds_traced: d.total_funds_traced ?? d.funds_traced ?? 3920000,
-            vasp_identified_count: d.vasp_identified_count ?? d.vasp_endpoints ?? 15,
-            cases_by_status: d.cases_by_status ?? { under_investigation: 8, closed: 4 },
-            cases_by_priority: d.cases_by_priority ?? { high: 6, medium: 4, critical: 2 },
-            recent_cases: d.recent_cases ?? [],
+            total_cases: d.total_cases ?? cases.length,
+            active_cases: d.active_cases ?? activeCases,
+            total_victims: d.total_victims ?? victims.length,
+            total_amount_reported: d.total_amount_reported ?? d.total_reported_value ?? totalReported,
+            total_funds_traced: d.total_funds_traced ?? d.funds_traced ?? totalTraced,
+            vasp_identified_count: d.vasp_identified_count ?? d.vasp_endpoints ?? vaspFound,
+            cases_by_status: d.cases_by_status ?? { under_investigation: activeCases, closed: cases.length - activeCases },
+            cases_by_priority: d.cases_by_priority ?? { high: activeCases, medium: 0, critical: 0 },
+            recent_cases: d.recent_cases?.length ? d.recent_cases : cases.slice(0, 5),
           },
         };
       }
@@ -1580,15 +1728,15 @@ export const casesAPI = {
 
     return {
       data: {
-        total_cases: 12,
-        active_cases: 8,
-        total_victims: 24,
-        total_amount_reported: 4850000,
-        total_funds_traced: 3920000,
-        vasp_identified_count: 15,
-        cases_by_status: { under_investigation: 8, closed: 4 },
-        cases_by_priority: { high: 6, medium: 4, critical: 2 },
-        recent_cases: [],
+        total_cases: cases.length,
+        active_cases: activeCases,
+        total_victims: victims.length,
+        total_amount_reported: totalReported,
+        total_funds_traced: totalTraced,
+        vasp_identified_count: vaspFound,
+        cases_by_status: { under_investigation: activeCases, closed: cases.length - activeCases },
+        cases_by_priority: { high: activeCases, medium: 0, critical: 0 },
+        recent_cases: cases.slice(0, 5),
       },
     };
   },
@@ -1597,98 +1745,105 @@ export const casesAPI = {
 };
 
 // ─── Victims ─────────────────────────────────────────────────────────────────
-const DEFAULT_VICTIMS: Victim[] = [
-  {
-    id: 'vic-1',
-    case_id: 'case-demo-1',
-    victim_name: 'Rajesh Kumar (MetaMask Sepolia Victim)',
-    victim_id_type: 'aadhaar',
-    victim_id_number: 'XXXX-XXXX-8821',
-    contact_email: 'rajesh.k@example.com',
-    contact_phone: '+91 98112 34567',
-    wallet_address: '0x056410ce3ab3ca36091c194547efb40f1a374cb9',
-    tx_hash: '0xe19bc4e3113382f59b61296c87cf69bef8ea584d4b94852f5bcd28c2fb8ea06d',
-    amount_lost: 85000,
-    currency: 'INR',
-    date_reported: new Date().toISOString(),
-    complaint_reference: '2026/NCRP/918234',
-    description: 'Task scam investment on Telegram',
-    created_at: new Date().toISOString(),
-  },
-];
-
 export const victimsAPI = {
   list: async (caseId?: string): Promise<{ data: Victim[] }> => {
+    initLocalStore();
     try {
-      return await api.get<Victim[]>('/api/victims', { params: caseId ? { case_id: caseId } : {} });
-    } catch {
-      return { data: DEFAULT_VICTIMS };
-    }
+      const res = await api.get<Victim[]>('/api/victims', { params: caseId ? { case_id: caseId } : {}, timeout: 1500 });
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        res.data.forEach(v => persistVictim(v));
+        return res;
+      }
+    } catch {}
+
+    const all = Object.values(LOCAL_VICTIMS);
+    const filtered = caseId ? all.filter(v => v.case_id === caseId) : all;
+    return { data: filtered };
   },
   listAll: async (): Promise<{ data: Victim[] }> => {
+    initLocalStore();
     try {
-      return await api.get<Victim[]>('/api/victims');
-    } catch {
-      return { data: DEFAULT_VICTIMS };
-    }
+      const res = await api.get<Victim[]>('/api/victims', { timeout: 1500 });
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        res.data.forEach(v => persistVictim(v));
+        return res;
+      }
+    } catch {}
+
+    return { data: Object.values(LOCAL_VICTIMS) };
   },
   create: async (caseId: string, data: VictimCreate): Promise<{ data: Victim }> => {
+    initLocalStore();
     try {
-      return await api.post<Victim>(`/api/cases/${caseId}/victims`, data);
-    } catch {
-      const newVic: Victim = {
-        id: `vic-${Date.now()}`,
-        case_id: caseId || 'case-demo-1',
-        victim_name: data.victim_name,
-        victim_id_type: data.victim_id_type || 'aadhaar',
-        victim_id_number: data.victim_id_number || 'N/A',
-        contact_email: data.contact_email || '',
-        contact_phone: data.contact_phone || '',
-        wallet_address: data.wallet_address || '',
-        tx_hash: data.tx_hash || '',
-        amount_lost: data.amount_lost || 0,
-        currency: data.currency || 'INR',
-        date_reported: new Date().toISOString(),
-        complaint_reference: data.complaint_reference || `2026/NCRP/${Math.floor(100000 + Math.random() * 900000)}`,
-        description: data.description || '',
-        created_at: new Date().toISOString(),
-      };
-      DEFAULT_VICTIMS.unshift(newVic);
-      return { data: newVic };
-    }
+      const res = await api.post<Victim>(`/api/cases/${caseId}/victims`, data, { timeout: 2000 });
+      if (res.data?.id) {
+        persistVictim(res.data);
+        return res;
+      }
+    } catch {}
+
+    const newVic: Victim = {
+      id: `vic-${Date.now()}`,
+      case_id: caseId || 'case-demo-1',
+      victim_name: data.victim_name,
+      victim_id_type: data.victim_id_type || 'aadhaar',
+      victim_id_number: data.victim_id_number || 'N/A',
+      contact_email: data.contact_email || '',
+      contact_phone: data.contact_phone || '',
+      wallet_address: data.wallet_address || '',
+      tx_hash: data.tx_hash || '',
+      amount_lost: Number(data.amount_lost) || 0,
+      currency: data.currency || 'INR',
+      date_reported: new Date().toISOString(),
+      complaint_reference: data.complaint_reference || `2026/NCRP/${Math.floor(100000 + Math.random() * 900000)}`,
+      description: data.description || '',
+      created_at: new Date().toISOString(),
+    };
+    persistVictim(newVic);
+    return { data: newVic };
   },
   createDirect: async (data: VictimCreate, caseId?: string): Promise<{ data: Victim }> => {
+    initLocalStore();
     try {
-      return await api.post<Victim>('/api/victims', data, { params: caseId ? { case_id: caseId } : {} });
-    } catch {
-      const newVic: Victim = {
-        id: `vic-${Date.now()}`,
-        case_id: caseId || 'case-demo-1',
-        victim_name: data.victim_name,
-        victim_id_type: data.victim_id_type || 'aadhaar',
-        victim_id_number: data.victim_id_number || 'N/A',
-        contact_email: data.contact_email || '',
-        contact_phone: data.contact_phone || '',
-        wallet_address: data.wallet_address || '',
-        tx_hash: data.tx_hash || '',
-        amount_lost: data.amount_lost || 0,
-        currency: data.currency || 'INR',
-        date_reported: new Date().toISOString(),
-        complaint_reference: data.complaint_reference || `2026/NCRP/${Math.floor(100000 + Math.random() * 900000)}`,
-        description: data.description || '',
-        created_at: new Date().toISOString(),
-      };
-      DEFAULT_VICTIMS.unshift(newVic);
-      return { data: newVic };
-    }
+      const res = await api.post<Victim>('/api/victims', data, { params: caseId ? { case_id: caseId } : {}, timeout: 2000 });
+      if (res.data?.id) {
+        persistVictim(res.data);
+        return res;
+      }
+    } catch {}
+
+    const newVic: Victim = {
+      id: `vic-${Date.now()}`,
+      case_id: caseId || 'case-demo-1',
+      victim_name: data.victim_name,
+      victim_id_type: data.victim_id_type || 'aadhaar',
+      victim_id_number: data.victim_id_number || 'N/A',
+      contact_email: data.contact_email || '',
+      contact_phone: data.contact_phone || '',
+      wallet_address: data.wallet_address || '',
+      tx_hash: data.tx_hash || '',
+      amount_lost: Number(data.amount_lost) || 0,
+      currency: data.currency || 'INR',
+      date_reported: new Date().toISOString(),
+      complaint_reference: data.complaint_reference || `2026/NCRP/${Math.floor(100000 + Math.random() * 900000)}`,
+      description: data.description || '',
+      created_at: new Date().toISOString(),
+    };
+    persistVictim(newVic);
+    return { data: newVic };
   },
   get: async (id: string): Promise<{ data: Victim }> => {
+    initLocalStore();
     try {
-      return await api.get<Victim>(`/api/victims/${id}`);
-    } catch {
-      const v = DEFAULT_VICTIMS.find((x) => x.id === id) || DEFAULT_VICTIMS[0];
-      return { data: v };
-    }
+      const res = await api.get<Victim>(`/api/victims/${id}`, { timeout: 1500 });
+      if (res.data?.id) {
+        persistVictim(res.data);
+        return res;
+      }
+    } catch {}
+
+    const v = LOCAL_VICTIMS[id] || INITIAL_VICTIM;
+    return { data: v };
   },
   crossMatch: (id: string) => api.get(`/api/victims/${id}/cross-match`),
 };
