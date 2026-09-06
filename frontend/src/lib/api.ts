@@ -1422,19 +1422,46 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
   const finalDetectedPatterns = Array.from(uniquePatternsMap.values());
 
   // 3. Dynamic Forensic Classification & Predictive Intent Analysis
-  const hasPeel = finalDetectedPatterns.some(p => p.code === 'PEEL_CHAIN');
+  const hasPeel = finalDetectedPatterns.some(p => p.code === 'PEEL_CHAIN') && decayPct > 15 && edges.length >= 3;
   const hasFunnel = finalDetectedPatterns.some(p => p.code === 'EXCHANGE_FUNNEL');
-  const hasFanOut = finalDetectedPatterns.some(p => p.code === 'FAN_OUT');
-  const hasFanIn = finalDetectedPatterns.some(p => p.code === 'FAN_IN');
+  const hasFanOut = finalDetectedPatterns.some(p => p.code === 'FAN_OUT') && (Object.values(senderTargets).some(t => t.size >= 3) || edges.length >= 4);
+  const hasFanIn = finalDetectedPatterns.some(p => p.code === 'FAN_IN') && Object.values(receiverSources).some(s => s.size >= 3);
   const hasStructuring = finalDetectedPatterns.some(p => p.code === 'SMURFING');
 
-  let primaryTopology = 'SEQUENTIAL_TRANSFER';
-  let topologyLabel = 'Sequential Wallet Transfer Trail';
-  let crimeTypology = 'Direct Illicit Fund Drain & Holding';
-  let crimeDescription = 'Unsanctioned direct transfer from victim into a suspect-controlled holding wallet.';
-  let predictedPurpose = 'Unspent Asset Accumulation in Holding Wallet';
-  let purposeDescription = 'Stolen assets resting in suspect-controlled wallet address with no further movement detected.';
-  let riskLevel: 'critical' | 'high' | 'medium' | 'low' = 'medium';
+  // Genuine fraud / suspicious crime indicator check
+  const isSuspiciousCrime = hasMixer || 
+    hasVictimMatch || 
+    (hasPeel && hasFunnel) || 
+    (hasFanOut && (hasFunnel || edges.length >= 3)) || 
+    (hasFanIn && (hasFunnel || edges.length >= 3)) || 
+    hasStructuring || 
+    (bridgeHopsCount > 0 && edges.length >= 3) || 
+    (edges.length >= 4 && isBotSpeed && decayPct > 10);
+
+  // Exact Mathematical Risk Score Calculation (0 - 100%)
+  let calculatedRiskScore = isSuspiciousCrime ? 55 : 12; // Realistic baseline: 12% for normal P2P, 55% base for verified suspicious
+  if (hasMixer) calculatedRiskScore += 40;
+  if (hasFunnel && isSuspiciousCrime) calculatedRiskScore += 20;
+  if (hasPeel) calculatedRiskScore += 20;
+  if (hasFanOut && isSuspiciousCrime) calculatedRiskScore += 18;
+  if (hasFanIn && isSuspiciousCrime) calculatedRiskScore += 15;
+  if (hasStructuring) calculatedRiskScore += 15;
+  if (bridgeHopsCount > 0 && edges.length >= 3) calculatedRiskScore += 20;
+  if (isBotSpeed && edges.length >= 3) calculatedRiskScore += 12;
+  if (edges.length >= 4 && isSuspiciousCrime) calculatedRiskScore += 10;
+  if (hasVictimMatch) calculatedRiskScore += 30;
+
+  calculatedRiskScore = isSuspiciousCrime ? Math.min(99, Math.max(50, calculatedRiskScore)) : Math.min(30, Math.max(8, calculatedRiskScore));
+
+  let primaryTopology = 'STANDARD_P2P_TRANSFER';
+  let topologyLabel = 'Standard Direct Peer-to-Peer Transfer';
+  let crimeTypology = 'Standard Legitimate Transfer (Non-Criminal)';
+  let crimeDescription = 'Normal on-chain cryptocurrency transfer between counterparties with no illicit layering or scam indicators.';
+  let predictedPurpose = 'Routine Wallet Payment & Asset Holding';
+  let purposeDescription = 'Direct transfer received and held by recipient with no subsequent money laundering activity.';
+  let riskLevel: 'critical' | 'high' | 'medium' | 'low' = isSuspiciousCrime 
+    ? (calculatedRiskScore >= 75 ? 'critical' : 'high') 
+    : (calculatedRiskScore >= 25 ? 'medium' : 'low');
 
   if (hasMixer) {
     primaryTopology = 'TORNADO_MIXER_POOL';
@@ -1460,7 +1487,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
     predictedPurpose = 'Sequential Mule Layering & Incremental Asset Peeling';
     purposeDescription = 'Progressive balance peeling across unhosted intermediary wallets to dilute transaction amounts.';
     riskLevel = 'high';
-  } else if (hasFanOut && hasFunnel) {
+  } else if (hasFanOut && (hasFunnel || isSuspiciousCrime)) {
     primaryTopology = 'STAR_FAN_OUT_DISPERSAL';
     topologyLabel = 'Star-Topology Fan-Out with Exchange Funnel';
     crimeTypology = 'Organized Phishing & Syndicate Fan-Out Scheme';
@@ -1468,7 +1495,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
     predictedPurpose = `Syndicate Fund Splitting into ${detectedVaspName || 'VASP'} Exit`;
     purposeDescription = `Splitting stolen cryptocurrency into smaller batches across temporary mules to evade threshold alarms.`;
     riskLevel = 'critical';
-  } else if (hasFanOut) {
+  } else if (hasFanOut && edges.length >= 3) {
     primaryTopology = 'STAR_FAN_OUT_DISPERSAL';
     topologyLabel = 'Star-Topology Fan-Out Dispersal';
     crimeTypology = 'Phishing & Automated Wallet Drainer Attack';
@@ -1484,7 +1511,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
     predictedPurpose = `Syndicate Fund Aggregation & Exit via ${detectedVaspName || 'VASP'}`;
     purposeDescription = `Aggregated proceeds from multiple victim sources pooled and deposited into ${detectedVaspName || 'VASP'} for fiat conversion.`;
     riskLevel = 'critical';
-  } else if (hasFanIn) {
+  } else if (hasFanIn && edges.length >= 3) {
     primaryTopology = 'FAN_IN_CONSOLIDATION';
     topologyLabel = 'Multi-Source Reconvergence & Consolidation';
     crimeTypology = 'Multi-Victim Fund Aggregation & Staging';
@@ -1492,15 +1519,24 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
     predictedPurpose = 'Centralized Staging & Aggregation before Distribution';
     purposeDescription = 'Funds pooled in a single nexus address awaiting further money mule forwarding or distribution.';
     riskLevel = 'high';
-  } else if (hasFunnel) {
+  } else if (hasFunnel && edges.length >= 3) {
     primaryTopology = 'EXCHANGE_CASH_OUT';
-    topologyLabel = 'Direct Exchange Cash-Out Nexus';
-    crimeTypology = 'Direct Fraud Liquidation via Exchange';
-    crimeDescription = 'Direct transfer of defrauded cryptocurrency into a centralized custodial exchange account.';
+    topologyLabel = 'Layered Exchange Cash-Out Nexus';
+    crimeTypology = 'Layered Fraud Liquidation via Exchange';
+    crimeDescription = 'Multi-hop routing of cryptocurrency terminating at a centralized custodial exchange account.';
     predictedPurpose = `Immediate Fiat Off-Ramp via ${detectedVaspName || 'VASP'}`;
-    purposeDescription = `Direct deposit into custodial account at ${detectedVaspName || 'VASP'} (Subpoenable KYC endpoint under Section 91 CrPC).`;
+    purposeDescription = `Deposit into custodial account at ${detectedVaspName || 'VASP'} (Subpoenable KYC endpoint under Section 91 CrPC).`;
     riskLevel = 'high';
-  } else if (bridgeHopsCount > 0) {
+  } else if (hasFunnel && edges.length < 3) {
+    primaryTopology = 'DIRECT_EXCHANGE_DEPOSIT';
+    topologyLabel = 'Direct Exchange Deposit (Single Step)';
+    crimeTypology = 'Standard Exchange Deposit (Routine Transfer)';
+    crimeDescription = 'Direct transfer of cryptocurrency from private wallet into exchange custodial infrastructure.';
+    predictedPurpose = `Direct Deposit into ${detectedVaspName || 'Exchange'}`;
+    purposeDescription = `Direct deposit into user exchange account for trading, staking, or custody.`;
+    riskLevel = 'low';
+    calculatedRiskScore = Math.min(20, calculatedRiskScore);
+  } else if (bridgeHopsCount > 0 && edges.length >= 3) {
     primaryTopology = 'CROSS_CHAIN_BRIDGE_HOP';
     topologyLabel = 'Cross-Chain Bridge Hopping';
     crimeTypology = 'Cross-Chain Bridge Laundering';
@@ -1508,7 +1544,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
     predictedPurpose = 'Cross-Chain Forensic Trace Disruption';
     purposeDescription = 'Assets bridged across blockchains to escape EVM-only automated tracking tools.';
     riskLevel = 'high';
-  } else if (edges.length >= 3) {
+  } else if (edges.length >= 4 && isBotSpeed) {
     primaryTopology = 'MONEY_MULE_LAYERING';
     topologyLabel = 'Multi-Hop Money Mule Layering';
     crimeTypology = 'Sequential Money Mule Obfuscation';
@@ -1516,38 +1552,73 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
     predictedPurpose = 'Intermediate Wallet Layering before Cashout';
     purposeDescription = 'Bouncing cryptocurrency through intermediate unhosted hops to confuse law enforcement tracing.';
     riskLevel = 'high';
+  } else if (edges.length <= 2) {
+    primaryTopology = 'STANDARD_P2P_TRANSFER';
+    topologyLabel = 'Direct Peer-to-Peer Transfer (Single Hop)';
+    crimeTypology = 'Standard P2P Transfer (Benign)';
+    crimeDescription = 'Standard direct blockchain transfer between two addresses with clean transaction history.';
+    predictedPurpose = 'Routine Wallet Payment & Asset Holding';
+    purposeDescription = 'Direct payment received and held by destination wallet with no subsequent money laundering activity.';
+    riskLevel = 'low';
+    calculatedRiskScore = Math.min(18, calculatedRiskScore);
   }
 
-  // 4. Exact Mathematical Risk Score Calculation
-  let calculatedRiskScore = 30; // base score for investigated fund flows
-  if (hasMixer) calculatedRiskScore += 40;
-  if (hasFunnel) calculatedRiskScore += 20;
-  if (hasPeel) calculatedRiskScore += 18;
-  if (hasFanOut) calculatedRiskScore += 16;
-  if (hasFanIn) calculatedRiskScore += 14;
-  if (hasStructuring) calculatedRiskScore += 15;
-  if (bridgeHopsCount > 0) calculatedRiskScore += 20;
-  if (isBotSpeed) calculatedRiskScore += 15;
-  if (edges.length >= 3) calculatedRiskScore += 10;
-  if (edges.length >= 5) calculatedRiskScore += 10;
-  if (totalTracedValue > 5) calculatedRiskScore += 10;
-  if (hasVictimMatch) calculatedRiskScore += 20;
+  // Generate clean non-alarmist detected patterns if benign
+  const benignSignatures: NonNullable<GraphTopologyAnalysis['detected_patterns']> = [
+    {
+      pattern_type: 'standard_transfer',
+      name: 'Standard Counterparty Transfer',
+      code: 'CLEAN_TRANSFER',
+      description: 'Clean direct transfer with no money mule hops or mixer interactions.',
+      severity: 'low',
+      confidence: 0.98,
+      risk_points: 0,
+      evidence: { hops: edges.length },
+      predicted_purpose: 'Standard Asset Transfer',
+    },
+    {
+      pattern_type: 'no_mixer',
+      name: 'No Privacy Mixers Detected',
+      code: 'NO_MIXER',
+      description: 'Zero interaction with Tornado Cash or unhosted tumbler protocols.',
+      severity: 'low',
+      confidence: 1.0,
+      risk_points: 0,
+      evidence: { mixer_detected: false },
+      predicted_purpose: 'Clean Transaction Graph',
+    },
+    {
+      pattern_type: 'unflagged_address',
+      name: 'Unflagged Clean Ledger History',
+      code: 'UNFLAGGED_ADDRESS',
+      description: 'Addresses show no active police FIRs or blacklisted cluster ties.',
+      severity: 'low',
+      confidence: 0.95,
+      risk_points: 0,
+      evidence: { complaints_linked: 0 },
+      predicted_purpose: 'Benign Counterparty History',
+    },
+  ];
 
-  calculatedRiskScore = Math.min(99, Math.max(15, calculatedRiskScore));
+  const activePatternsToReport = isSuspiciousCrime ? finalDetectedPatterns : benignSignatures;
 
-  const explanationParts = [
+  const explanationParts = isSuspiciousCrime ? [
     `🎯 Typology: ${topologyLabel} (${totalNodes} wallets, ${totalEdges} hops on ${chain.toUpperCase()}).`,
     `⏱️ Velocity: ${Math.round(avgTimeSec)}s avg hop (${isBotSpeed ? 'Automated Speed' : 'Manual Transfer'}) | Decay: ${decayPct.toFixed(1)}%.`,
     hasFunnel
       ? `🏛️ Endpoint: Terminated at ${detectedVaspName} — Subpoenable under Section 91 CrPC.`
       : `🛡️ Status: Funds resting in suspect unhosted address (${suspectDisplay}).`
+  ] : [
+    `✅ Status: Normal on-chain transfer (${totalNodes} wallets, ${totalEdges} hops on ${chain.toUpperCase()}).`,
+    `⏱️ Execution: Standard counterparty transfer (${Math.round(avgTimeSec)}s interval).`,
+    `🛡️ Intelligence: No mixer protocols, peel chain decay, or cyber cell FIRs detected.`
   ];
 
   const topologyAnalysis: GraphTopologyAnalysis = {
     primary_topology: primaryTopology,
     topology_label: topologyLabel,
     predicted_purpose: predictedPurpose,
-    confidence: hasPeel || hasFunnel || hasMixer ? 0.96 : 0.88,
+    confidence: isSuspiciousCrime ? 0.96 : 0.92,
     risk_level: riskLevel,
     structural_metrics: {
       max_in_degree: maxIn,
@@ -1555,19 +1626,19 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
       average_time_delta_seconds: Math.round(avgTimeSec),
       amount_decay_percentage: Number(decayPct.toFixed(2)),
       bridge_hops_count: bridgeHopsCount,
-      is_bot_automated: isBotSpeed,
+      is_bot_automated: isBotSpeed && edges.length >= 3,
       total_nodes: totalNodes,
       total_edges: totalEdges,
     },
-    detected_patterns: finalDetectedPatterns,
+    detected_patterns: activePatternsToReport,
     investigator_explanation: explanationParts.join('\n'),
     white_money_contrast: {
-      is_likely_legitimate: !(hasPeel || hasMixer || isBotSpeed || hasFunnel),
+      is_likely_legitimate: !isSuspiciousCrime,
       commercial_indicators: [
-        !isBotSpeed ? 'Standard business hour intervals' : 'Deviation: Sub-minute automated execution',
-        totalNodes <= 2 ? 'Direct peer counterparty transfer' : 'Deviation: Multi-layer intermediary mules',
+        'Direct peer counterparty transfer',
+        'Standard blockchain execution intervals',
       ],
-      illicit_indicators: finalDetectedPatterns.map(p => p.name),
+      illicit_indicators: isSuspiciousCrime ? finalDetectedPatterns.map(p => p.name) : [],
     },
   };
 
@@ -1602,25 +1673,27 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
         is_sepolia: isSepolia,
         is_demo: false,
         environment_badge: {
-          label: `Live ${chain.toUpperCase()} Real-Time Intelligence`,
+          label: isSuspiciousCrime ? `Live ${chain.toUpperCase()} Threat Telemetry` : `Live ${chain.toUpperCase()} Verified Telemetry`,
           type: 'mainnet',
-          is_real_loss: true,
-          disclaimer: `Real-time on-chain blockchain forensic evidence on ${chain.toUpperCase()}.`,
+          is_real_loss: isSuspiciousCrime,
+          disclaimer: `Real-time on-chain blockchain forensic analysis on ${chain.toUpperCase()}.`,
         },
         verdict: {
-          is_scam: true,
+          is_scam: isSuspiciousCrime,
           fraud_type: crimeTypology,
           risk_level: riskLevel,
           confidence_score: calculatedRiskScore,
           confidence_percentage: `${calculatedRiskScore}%`,
         },
-        executive_summary: executiveSummary,
+        executive_summary: isSuspiciousCrime ? executiveSummary : `✅ VERIFIED BENIGN: ${totalTracedValue.toFixed(4)} ${nativeAsset} moved in a direct standard transfer on ${chain.toUpperCase()}.\nNo money laundering, peel chains, or victim complaints detected.`,
         modus_operandi: {
-          is_scam_likely: true,
+          is_scam_likely: isSuspiciousCrime,
           primary_typology: crimeTypology,
-          summary: `Traced ${totalTracedValue.toFixed(4)} ${nativeAsset} across ${nodes.length} wallets ending at ${vaspDisplay}. Pattern: ${topologyLabel}.`,
+          summary: isSuspiciousCrime 
+            ? `Traced ${totalTracedValue.toFixed(4)} ${nativeAsset} across ${nodes.length} wallets ending at ${vaspDisplay}. Pattern: ${topologyLabel}.`
+            : `Normal transfer of ${totalTracedValue.toFixed(4)} ${nativeAsset} between counterparties. No scam signatures detected.`,
           intents: [
-            { category: 'layering', detected: true, description: purposeDescription, evidence: `Hop 0 -> Hop ${edges.length}` }
+            { category: isSuspiciousCrime ? 'layering' : 'standard_transfer', detected: isSuspiciousCrime, description: purposeDescription, evidence: `Hop 0 -> Hop ${edges.length}` }
           ],
           layering_hops_count: edges.length,
           vasp_identified: vaspDetected,
@@ -1632,7 +1705,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
           tier: totalTracedValue > 5 ? 'Whale / High Value' : 'Retail / Moderate',
           tier_description: crimeDescription,
           is_whale_movement: totalTracedValue > 5,
-          structuring_detected: edges.length > 2,
+          structuring_detected: edges.length > 2 && hasStructuring,
           average_hop_amount: edges.length > 0 ? totalTracedValue / edges.length : totalTracedValue,
           max_single_transfer: totalTracedValue,
         },
@@ -1656,7 +1729,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
           })) : [
             {
               victim_id: 'vic-auto',
-              case_number: 'NCRP/2026/CYB-AUTO',
+              case_number: isSuspiciousCrime ? 'NCRP/2026/CYB-SUSPECT' : 'LEDGER/CLEAN/P2P',
               case_title: crimeTypology,
               matched_address: suspectNode ? suspectNode.id : startAddress,
               amount_lost: totalTracedValue,
@@ -1664,11 +1737,11 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
               cryptocurrency: nativeAsset,
               complaint_date: new Date().toISOString(),
               complaint_description: crimeDescription,
-              match_type: 'on_chain_heuristics',
+              match_type: isSuspiciousCrime ? 'on_chain_heuristics' : 'benign_transfer',
             }
           ],
         },
-        behavioral_patterns: finalDetectedPatterns.map(p => ({
+        behavioral_patterns: activePatternsToReport.map(p => ({
           pattern_type: p.code,
           description: p.description,
           severity: p.severity,
@@ -1677,7 +1750,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
           risk_points: p.risk_points,
         })),
         topology_analysis: topologyAnalysis,
-        police_action_plan: [
+        police_action_plan: isSuspiciousCrime ? [
           {
             priority: 'urgent',
             title: vaspDetected ? `Serve Section 91 CrPC Notice on ${detectedVaspName}` : 'Issue Wallet Watch Alert to Indian VASPs',
@@ -1688,8 +1761,21 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
             ],
             legal_basis: 'Section 91 CrPC / Section 94 BNSS',
           },
+        ] : [
+          {
+            priority: 'info',
+            title: 'No Police Action Required (Normal Activity)',
+            purpose: 'Transaction demonstrates standard blockchain transfer characteristics with no criminal indicators.',
+            details: [
+              'No formal legal notices required.',
+              'Address exhibits clean counterparty interaction history.',
+            ],
+            legal_basis: 'Standard Peer-to-Peer Blockchain Activity',
+          },
         ],
-        advisory_disclaimer: 'Generated by CryptoTrace AI live on-chain forensic attribution engine.',
+        advisory_disclaimer: isSuspiciousCrime 
+          ? 'Generated by CryptoTrace AI live on-chain forensic attribution engine.'
+          : 'Verified on-chain: No money laundering or fraud signatures detected.',
       },
     },
   };

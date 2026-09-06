@@ -376,7 +376,12 @@ export default function TracerPage() {
                 </span>
               </div>
               {result.graph_data?.ai_analysis && (
-                <span className="px-2 py-0.5 rounded bg-[#00ff66]/20 text-[#00ff66] border border-[#00ff66]/40 text-[10px] font-bold uppercase">
+                <span className={cn(
+                  "px-2 py-0.5 rounded border text-[10px] font-bold uppercase",
+                  result.graph_data.ai_analysis.verdict.is_scam
+                    ? "bg-red-500/20 text-red-300 border-red-500/40"
+                    : "bg-[#00ff66]/20 text-[#00ff66] border-[#00ff66]/40 shadow-[0_0_10px_rgba(0,255,102,0.2)]"
+                )}>
                   {result.graph_data.ai_analysis.verdict.fraud_type} ({result.graph_data.ai_analysis.verdict.confidence_percentage})
                 </span>
               )}

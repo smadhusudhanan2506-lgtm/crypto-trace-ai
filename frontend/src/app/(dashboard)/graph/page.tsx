@@ -722,16 +722,23 @@ function GraphContent() {
           </div>
 
           <div className="p-3 rounded-xl bg-[#041d0e]/70 border border-[#0d331d] flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
+            <div className={cn(
+              "p-2 rounded-lg shrink-0",
+              aiAnalysis?.verdict?.is_scam ? "bg-amber-500/10 text-amber-400" : "bg-[#00ff66]/10 text-[#00ff66]"
+            )}>
               <Activity className="w-4 h-4" />
             </div>
             <div className="overflow-hidden">
-              <p className="text-[10px] text-emerald-400/80 font-mono uppercase">Fraud Verdict</p>
+              <p className="text-[10px] text-emerald-400/80 font-mono uppercase">Activity Verdict</p>
               <p className={cn(
                 'text-xs sm:text-sm font-bold font-mono truncate',
-                (aiAnalysis?.verdict?.confidence_score || traceDetail.risk_score) >= 70 ? 'text-red-400' : (aiAnalysis?.verdict?.confidence_score || traceDetail.risk_score) >= 40 ? 'text-amber-400' : 'text-[#00ff66]'
+                aiAnalysis?.verdict?.is_scam
+                  ? ((aiAnalysis.verdict.confidence_score || traceDetail.risk_score) >= 70 ? 'text-red-400' : 'text-amber-400')
+                  : 'text-[#00ff66]'
               )}>
-                {aiAnalysis?.verdict?.is_scam ? `Scam Likely (${aiAnalysis.verdict.confidence_score}%)` : `Risk: ${traceDetail.risk_score}/100`}
+                {aiAnalysis?.verdict?.is_scam
+                  ? `Scam Likely (${aiAnalysis.verdict.confidence_score}%)`
+                  : `Normal Activity (${aiAnalysis?.verdict?.confidence_score || traceDetail.risk_score}%)`}
               </p>
             </div>
           </div>
@@ -750,26 +757,45 @@ function GraphContent() {
         </div>
       )}
 
-      {/* AI Crime Typology & Scam Pattern Detection Banner */}
+      {/* AI Crime / Normal Activity Detection Banner */}
       {aiAnalysis && (
-        <div className="glass-card p-4 sm:p-5 border border-[#00ff66]/35 bg-[#021309]/95 space-y-4 shadow-[0_0_30px_rgba(0,255,102,0.12)]">
+        <div className={cn(
+          "glass-card p-4 sm:p-5 border space-y-4 shadow-xl transition-all",
+          aiAnalysis.verdict?.is_scam
+            ? "border-red-500/40 bg-[#160606]/95 shadow-[0_0_30px_rgba(239,68,68,0.15)]"
+            : "border-[#00ff66]/35 bg-[#021309]/95 shadow-[0_0_30px_rgba(0,255,102,0.12)]"
+        )}>
           {/* Header Row */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#0d331d] pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-red-500/15 border border-red-500/40 text-red-400 shrink-0">
-                <AlertOctagon className="w-5 h-5 animate-pulse" />
+              <div className={cn(
+                "p-2 rounded-xl border shrink-0",
+                aiAnalysis.verdict?.is_scam
+                  ? "bg-red-500/15 border-red-500/40 text-red-400"
+                  : "bg-[#00ff66]/15 border-[#00ff66]/40 text-[#00ff66]"
+              )}>
+                {aiAnalysis.verdict?.is_scam ? <AlertOctagon className="w-5 h-5 animate-pulse" /> : <CheckCircle2 className="w-5 h-5" />}
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-sm sm:text-base font-bold text-white uppercase font-mono tracking-wider">
-                    Crime Typology & Pattern Detection Intelligence
+                    {aiAnalysis.verdict?.is_scam
+                      ? "Crime Typology & Pattern Detection Intelligence"
+                      : "Transaction Flow & Activity Classification Intelligence"}
                   </h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase bg-red-500/20 text-red-300 border border-red-500/40">
-                    High-Risk Scam Nexus
+                  <span className={cn(
+                    "px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase border",
+                    aiAnalysis.verdict?.is_scam
+                      ? "bg-red-500/20 text-red-300 border-red-500/40"
+                      : "bg-[#00ff66]/20 text-[#00ff66] border-[#00ff66]/40 shadow-[0_0_10px_rgba(0,255,102,0.3)]"
+                  )}>
+                    {aiAnalysis.verdict?.is_scam ? "High-Risk Scam Nexus" : "Normal / Low Risk Activity"}
                   </span>
                 </div>
                 <p className="text-xs text-emerald-400 font-mono mt-0.5">
-                  AI Forensic Classifier &middot; Behavioral Heuristic Analysis &middot; Indian Law Enforcement Ready
+                  {aiAnalysis.verdict?.is_scam
+                    ? "AI Forensic Classifier • Behavioral Heuristic Analysis • Indian Law Enforcement Ready"
+                    : "Real-Time On-Chain Analysis • Verified Clean Ledger Telemetry • No Obfuscation Detected"}
                 </p>
               </div>
             </div>
@@ -780,34 +806,42 @@ function GraphContent() {
                 className="btn-primary text-xs px-3.5 py-1.5 font-mono flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,255,102,0.3)]"
               >
                 <BrainCircuit className="w-4 h-4" />
-                <span>Open Full Police Assessment</span>
+                <span>{aiAnalysis.verdict?.is_scam ? "Open Full Police Assessment" : "Open Forensic Assessment"}</span>
               </button>
               <a
                 href={`https://www.chainabuse.com/address/${selectedNode?.id || traceDetail?.start_address || '0x9272477a53a8ec8a75df008d34cbddfefd82cf60'}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-950/80 border border-red-500/50 text-red-300 text-xs font-mono font-bold flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-black/40 hover:bg-black/70 border border-[#0d331d] text-emerald-300 text-xs font-mono font-bold flex items-center gap-1.5 transition-colors"
               >
-                <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
-                <span>Chainabuse Reports</span>
+                <ShieldAlert className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Check Threat Intel</span>
                 <ExternalLink className="w-3 h-3 opacity-70" />
               </a>
             </div>
           </div>
 
-          {/* 4-Box Crime & Pattern Forensic Intelligence Grid */}
+          {/* 4-Box Intelligence Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 font-mono">
-            {/* Box 1: Which Crime The Scammer Uses */}
-            <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#240808] to-[#021309] border border-red-500/40 space-y-1 shadow-md">
-              <div className="flex items-center gap-1.5 text-red-400 text-[10px] uppercase font-bold tracking-wider">
-                <ShieldAlert className="w-3.5 h-3.5" />
-                <span>1. Crime Typology</span>
+            {/* Box 1: Activity Classification / Crime Typology */}
+            <div className={cn(
+              "p-3.5 rounded-xl border space-y-1 shadow-md",
+              aiAnalysis.verdict?.is_scam
+                ? "bg-gradient-to-br from-[#240808] to-[#021309] border-red-500/40 text-red-300"
+                : "bg-gradient-to-br from-[#042412] to-[#021309] border-[#00ff66]/40 text-emerald-200"
+            )}>
+              <div className={cn(
+                "flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider",
+                aiAnalysis.verdict?.is_scam ? "text-red-400" : "text-[#00ff66]"
+              )}>
+                {aiAnalysis.verdict?.is_scam ? <ShieldAlert className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>{aiAnalysis.verdict?.is_scam ? "1. Crime Typology" : "1. Activity Nature"}</span>
               </div>
               <p className="text-sm font-bold text-white leading-tight">
-                {aiAnalysis.verdict?.fraud_type || aiAnalysis.modus_operandi?.primary_typology || "Phishing & Illicit Asset Siphoning"}
+                {aiAnalysis.verdict?.fraud_type || aiAnalysis.modus_operandi?.primary_typology || "Standard P2P Transfer"}
               </p>
-              <p className="text-[11px] text-red-200/80 font-sans mt-0.5">
-                {aiAnalysis.victim_correlations?.matched_victims?.[0]?.complaint_description || aiAnalysis.amount_analysis?.tier_description || "Defrauded assets transferred across unhosted addresses."}
+              <p className="text-[11px] text-slate-300/80 font-sans mt-0.5">
+                {aiAnalysis.amount_analysis?.tier_description || (aiAnalysis.verdict?.is_scam ? "Defrauded assets transferred across unhosted addresses." : "Normal cryptocurrency movement with clean transaction history.")}
               </p>
             </div>
 
@@ -815,10 +849,10 @@ function GraphContent() {
             <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#042412] to-[#021309] border border-[#00ff66]/40 space-y-1 shadow-md">
               <div className="flex items-center gap-1.5 text-[#00ff66] text-[10px] uppercase font-bold tracking-wider">
                 <GitBranch className="w-3.5 h-3.5" />
-                <span>2. Pattern Type</span>
+                <span>2. Flow Pattern</span>
               </div>
               <p className="text-sm font-bold text-emerald-200 leading-tight">
-                {aiAnalysis.topology_analysis?.topology_label || "Multi-Hop Layering Network"}
+                {aiAnalysis.topology_analysis?.topology_label || "Direct Peer-to-Peer Flow"}
               </p>
               <p className="text-[11px] text-emerald-300/80 font-sans mt-0.5">
                 {aiAnalysis.topology_analysis?.primary_topology === 'STAR_FAN_OUT_DISPERSAL'
@@ -833,38 +867,46 @@ function GraphContent() {
                   ? 'Multi-chain bridge: routing funds across EVM and non-EVM chains to break traces.'
                   : aiAnalysis.topology_analysis?.primary_topology === 'TORNADO_MIXER_POOL'
                   ? 'Mixer pool: smart-contract anonymization to sever cryptographic history.'
-                  : 'Sequential multi-hop trail across intermediary unhosted addresses.'}
+                  : 'Direct single-step transaction without intermediary burner mules or obfuscation.'}
               </p>
             </div>
 
-            {/* Box 3: Scammer Objective & Liquidation Exit */}
-            <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#1c0e2e] to-[#021309] border border-purple-500/40 space-y-1 shadow-md">
-              <div className="flex items-center gap-1.5 text-purple-300 text-[10px] uppercase font-bold tracking-wider">
+            {/* Box 3: Scammer Purpose / Observed Purpose */}
+            <div className={cn(
+              "p-3.5 rounded-xl border space-y-1 shadow-md",
+              aiAnalysis.verdict?.is_scam
+                ? "bg-gradient-to-br from-[#1c0e2e] to-[#021309] border-purple-500/40 text-purple-300"
+                : "bg-gradient-to-br from-[#021814] to-[#021309] border-cyan-500/40 text-cyan-200"
+            )}>
+              <div className={cn(
+                "flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider",
+                aiAnalysis.verdict?.is_scam ? "text-purple-300" : "text-cyan-400"
+              )}>
                 <Target className="w-3.5 h-3.5" />
-                <span>3. Scammer Purpose</span>
+                <span>{aiAnalysis.verdict?.is_scam ? "3. Scammer Purpose" : "3. Observed Purpose"}</span>
               </div>
-              <p className="text-sm font-bold text-purple-200 leading-tight">
-                {aiAnalysis.topology_analysis?.predicted_purpose || "Layered Fund Obfuscation"}
+              <p className="text-sm font-bold text-white leading-tight">
+                {aiAnalysis.topology_analysis?.predicted_purpose || (aiAnalysis.verdict?.is_scam ? "Layered Fund Obfuscation" : "Routine Payment & Asset Holding")}
               </p>
-              <p className="text-[11px] text-purple-300/80 font-sans mt-0.5">
-                {traceDetail?.vasp_detected
+              <p className="text-[11px] text-slate-300/80 font-sans mt-0.5">
+                {traceDetail?.vasp_detected && aiAnalysis.verdict?.is_scam
                   ? `Terminal deposit into ${traceDetail.vasp_name} for fiat off-ramping (Subpoenable KYC target).`
-                  : aiAnalysis.topology_analysis?.primary_topology === 'STAR_FAN_OUT_DISPERSAL'
-                  ? 'Splitting illicit proceeds across temporary burner wallets to evade blacklisting.'
-                  : 'Bouncing through intermediary mules to distance funds from the victim.'}
+                  : aiAnalysis.verdict?.is_scam
+                  ? 'Bouncing through intermediary mules to distance funds from the victim.'
+                  : 'Funds received and held in recipient wallet with no mixer or rapid money mule activity.'}
               </p>
             </div>
 
-            {/* Box 4: Velocity & Automation */}
+            {/* Box 4: Velocity & Timing */}
             <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#021c24] to-[#021309] border border-cyan-500/40 space-y-1 shadow-md">
               <div className="flex items-center gap-1.5 text-cyan-400 text-[10px] uppercase font-bold tracking-wider">
                 <Activity className="w-3.5 h-3.5" />
-                <span>4. Velocity & Speed</span>
+                <span>4. Velocity & Timing</span>
               </div>
               <p className="text-sm font-bold text-cyan-200 leading-tight">
                 {aiAnalysis.topology_analysis?.structural_metrics?.is_bot_automated
-                  ? `Automated Bot Speed (< ${aiAnalysis.topology_analysis.structural_metrics.average_time_delta_seconds || 120}s)`
-                  : 'Human-Paced Transfer'}
+                  ? `Automated Execution (< ${aiAnalysis.topology_analysis.structural_metrics.average_time_delta_seconds || 120}s)`
+                  : 'Standard Execution Timing'}
               </p>
               <p className="text-[11px] text-cyan-300/80 font-sans mt-0.5">
                 Balance Decay: {aiAnalysis.topology_analysis?.structural_metrics?.amount_decay_percentage || 0}% across hops.
@@ -874,11 +916,18 @@ function GraphContent() {
 
           {/* Forensic Pattern Tags Strip */}
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[#0d331d]/60">
-            <span className="text-[11px] font-bold text-slate-400 font-mono">Detected Signatures:</span>
+            <span className="text-[11px] font-bold text-slate-400 font-mono">
+              {aiAnalysis.verdict?.is_scam ? "Detected Signatures:" : "Verified Ledger Attributes:"}
+            </span>
             {Array.from(new Map(aiAnalysis.topology_analysis?.detected_patterns?.map(p => [p.code, p]) || []).values()).map((p, idx) => (
               <span
                 key={idx}
-                className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-[#041d0e] text-[#00ff66] border border-[#0d331d] flex items-center gap-1.5"
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold border flex items-center gap-1.5",
+                  aiAnalysis.verdict?.is_scam
+                    ? "bg-[#041d0e] text-[#00ff66] border-[#0d331d]"
+                    : "bg-[#022010] text-[#00ff66] border-[#00ff66]/30 shadow-[0_0_8px_rgba(0,255,102,0.15)]"
+                )}
               >
                 <CheckCircle2 className="w-3 h-3 text-[#00ff66]" />
                 <span>[{p.code}] {p.name}</span>
@@ -895,12 +944,7 @@ function GraphContent() {
                 <ShieldAlert className="w-3 h-3 text-red-400" />
                 <span>[NCRP_COMPLAINTS_LINKED] {aiAnalysis.victim_correlations.total_matches} Verified FIR{aiAnalysis.victim_correlations.total_matches > 1 ? 's' : ''}</span>
               </span>
-            ) : (
-              <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-amber-950/40 text-amber-300 border border-amber-500/40 flex items-center gap-1.5">
-                <ShieldAlert className="w-3 h-3 text-amber-400" />
-                <span>[ON_CHAIN_FLAGGED] High-Risk Heuristics</span>
-              </span>
-            )}
+            ) : null}
           </div>
         </div>
       )}
