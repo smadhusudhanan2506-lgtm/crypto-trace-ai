@@ -46,15 +46,15 @@ export default api;
 
 // ─── Local Fallback Store for Standalone Vercel Deployments ─────────────────
 const DEFAULT_USERS: Record<string, { pass: string; user: User }> = {
-  'smadhusudhanan2506@gmail.com': {
-    pass: '123456',
+  'admin@cryptotrace.ai': {
+    pass: 'admin123',
     user: {
-      id: 'usr-madhu-001',
-      email: 'smadhusudhanan2506@gmail.com',
-      full_name: 'Madhusudhanan S',
-      role: 'investigator',
-      organization: 'Cyber Crime Investigation Cell',
-      badge_number: 'INV-001',
+      id: 'usr-admin-001',
+      email: 'admin@cryptotrace.ai',
+      full_name: 'National Cyber Bureau Admin',
+      role: 'admin',
+      organization: 'National Cyber Crime Coordination Centre (I4C)',
+      badge_number: 'I4C-ADMIN-01',
       is_active: true,
       created_at: new Date().toISOString(),
       last_login: new Date().toISOString(),
@@ -67,22 +67,36 @@ const DEFAULT_USERS: Record<string, { pass: string; user: User }> = {
       email: 'investigator@cryptotrace.ai',
       full_name: 'Inspector Raj Kumar',
       role: 'investigator',
-      organization: 'Cyber Crime Investigation Cell',
-      badge_number: 'INV-2026-001',
+      organization: 'Cyber Crime Police Station — Special Cell',
+      badge_number: 'LEA-INV-8812',
       is_active: true,
       created_at: new Date().toISOString(),
       last_login: new Date().toISOString(),
     },
   },
-  'admin@cryptotrace.ai': {
-    pass: 'admin123',
+  'analyst@cryptotrace.ai': {
+    pass: 'analyst123',
     user: {
-      id: 'usr-admin-003',
-      email: 'admin@cryptotrace.ai',
-      full_name: 'System Administrator',
-      role: 'admin',
+      id: 'usr-priya-003',
+      email: 'analyst@cryptotrace.ai',
+      full_name: 'Priya Sharma (Forensics)',
+      role: 'analyst',
+      organization: 'Financial Intelligence Unit (FIU-IND)',
+      badge_number: 'FIU-ANL-304',
+      is_active: true,
+      created_at: new Date().toISOString(),
+      last_login: new Date().toISOString(),
+    },
+  },
+  'smadhusudhanan2506@gmail.com': {
+    pass: '123456',
+    user: {
+      id: 'usr-madhu-004',
+      email: 'smadhusudhanan2506@gmail.com',
+      full_name: 'Madhusudhanan S',
+      role: 'investigator',
       organization: 'Cyber Crime Investigation Cell',
-      badge_number: 'ADMIN-001',
+      badge_number: 'INV-2026-01',
       is_active: true,
       created_at: new Date().toISOString(),
       last_login: new Date().toISOString(),
@@ -1729,12 +1743,24 @@ export const authAPI = {
       },
     };
   },
-  me: async () => {
+  me: async (): Promise<{ data: User }> => {
     try {
-      return await api.get('/api/auth/me');
-    } catch {
-      return { data: DEFAULT_USERS['smadhusudhanan2506@gmail.com'].user };
+      const res = await api.get('/api/auth/me');
+      if (res.data && res.data.email) return res;
+    } catch {}
+
+    if (typeof window !== 'undefined') {
+      const userStr = localStorage.getItem('cryptotrace_user');
+      if (userStr) {
+        try {
+          const parsed = JSON.parse(userStr);
+          if (parsed && parsed.email) {
+            return { data: parsed };
+          }
+        } catch {}
+      }
     }
+    return { data: DEFAULT_USERS['admin@cryptotrace.ai'].user };
   },
 };
 

@@ -210,12 +210,84 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          {/* Quick Officer Switcher (Simultaneous Multi-User Presets) */}
+          {!isRegister && (
+            <div className="mt-5 pt-4 border-t border-[#0d331d]/80 space-y-2">
+              <p className="text-[11px] font-mono text-emerald-400/90 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <span>🛡️</span>
+                <span>Quick Officer Access (Multi-Account Switcher):</span>
+              </p>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm({ ...form, email: 'investigator@cryptotrace.ai', password: 'demo123' });
+                  }}
+                  className="w-full text-left p-2 rounded-lg bg-[#041d0e]/80 hover:bg-[#072d17] border border-[#0d331d] hover:border-[#00ff66]/40 transition-colors flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-[#00ff66]/20 text-[#00ff66] flex items-center justify-center text-xs font-bold font-mono">
+                      R
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-white group-hover:text-[#00ff66]">Inspector Raj Kumar</p>
+                      <p className="text-[10px] text-emerald-400/80 font-mono">Senior Investigator • Cyber Cell</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-emerald-500 bg-[#00ff66]/10 px-2 py-0.5 rounded border border-[#00ff66]/20">1-Click</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm({ ...form, email: 'admin@cryptotrace.ai', password: 'admin123' });
+                  }}
+                  className="w-full text-left p-2 rounded-lg bg-[#041d0e]/80 hover:bg-[#072d17] border border-[#0d331d] hover:border-[#00ff66]/40 transition-colors flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-bold font-mono">
+                      A
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-white group-hover:text-cyan-300">National Cyber Bureau Admin</p>
+                      <p className="text-[10px] text-cyan-400/80 font-mono">I4C National Command • Chief Admin</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">1-Click</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm({ ...form, email: 'analyst@cryptotrace.ai', password: 'analyst123' });
+                  }}
+                  className="w-full text-left p-2 rounded-lg bg-[#041d0e]/80 hover:bg-[#072d17] border border-[#0d331d] hover:border-[#00ff66]/40 transition-colors flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-xs font-bold font-mono">
+                      P
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-white group-hover:text-purple-300">Priya Sharma (Forensics)</p>
+                      <p className="text-[10px] text-purple-400/80 font-mono">FIU-IND • On-Chain Analyst</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">1-Click</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Demo credentials hint */}
-        <div className="mt-3.5 text-center">
-          <p className="text-[11px] text-emerald-500/70 font-mono">
-            SECURE ACCESS PORTAL — READY FOR INVESTIGATION
+        {/* Multi-Tenant info banner */}
+        <div className="mt-4 p-3 rounded-xl bg-[#03180c]/80 border border-[#0d331d] text-center space-y-1">
+          <p className="text-xs font-bold text-emerald-300 flex items-center justify-center gap-1.5 font-mono">
+            <span className="w-2 h-2 rounded-full bg-[#00ff66] animate-pulse" />
+            <span>Multi-User Isolated Sessions Active</span>
+          </p>
+          <p className="text-[10px] text-slate-400">
+            Multiple officers and analysts can log in simultaneously across different browsers/devices with distinct profiles, cases, and forensic reports.
           </p>
         </div>
       </div>
