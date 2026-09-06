@@ -171,14 +171,18 @@ class EthereumAdapter(BlockchainAdapter):
         return bool(ETH_TX_REGEX.match(tx_hash))
 
     async def get_transaction(self, tx_hash: str) -> Optional[NormalizedTransaction]:
-        """Fetch real Ethereum transaction via RPC."""
-        # Get transaction
+        """Fetch real Ethereum transaction via RPC with Etherscan proxy fallback."""
+        # Get transaction via RPC first, then Etherscan proxy
         tx_data = await self._rpc_call("eth_getTransactionByHash", [tx_hash])
         if not tx_data:
+            tx_data = await self._etherscan_call({"module": "proxy", "action": "eth_getTransactionByHash", "txhash": tx_hash})
+        if not tx_data or not isinstance(tx_data, dict):
             return None
 
         # Get receipt for status and gas used
         receipt = await self._rpc_call("eth_getTransactionReceipt", [tx_hash])
+        if not receipt:
+            receipt = await self._etherscan_call({"module": "proxy", "action": "eth_getTransactionReceipt", "txhash": tx_hash})
 
         # Get block for timestamp
         block_number_hex = tx_data.get("blockNumber", "0x0")
