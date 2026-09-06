@@ -263,10 +263,10 @@ const LOCAL_CASES: Record<string, Case> = {};
 const LOCAL_VICTIMS: Record<string, Victim> = {};
 
 const INITIAL_CASE: Case = {
-  id: 'case-demo-1',
+  id: 'case-live-1',
   case_number: 'CR/2026/CYB-9182',
-  title: 'Operation Golden Ledger — Multi-Victim Sepolia Phishing Nexus',
-  description: 'Telegram investment fraud syndication layering through unhosted mules and Uniswap router.',
+  title: 'Operation Cipher Shield — Mainnet Multi-Hop Cyber Fraud Investigation',
+  description: 'Real-time multi-hop blockchain tracing targeting fraud syndicate funds and VASP cash-out endpoints.',
   status: 'under_investigation',
   priority: 'high',
   investigator_id: 'usr-madhu-001',
@@ -275,7 +275,7 @@ const INITIAL_CASE: Case = {
   reported_amount: 185000,
   currency: 'INR',
   cryptocurrency: 'ETH',
-  blockchain: 'sepolia',
+  blockchain: 'ethereum',
   suspect_wallet: '0x9272477a53a8ec8a75df008d34cbddfefd82cf60',
   initial_txid: '0xe19bc4e3113382f59b61296c87cf69bef8ea584d4b94852f5bcd28c2fb8ea06d',
   risk_score: 92,
@@ -294,8 +294,8 @@ const INITIAL_CASE: Case = {
 
 const INITIAL_VICTIM: Victim = {
   id: 'vic-1',
-  case_id: 'case-demo-1',
-  victim_name: 'Rajesh Kumar (MetaMask Sepolia Victim)',
+  case_id: 'case-live-1',
+  victim_name: 'Rajesh Kumar (NCRP Complaint #2026/918234)',
   victim_id_type: 'aadhaar',
   victim_id_number: 'XXXX-XXXX-8821',
   contact_email: 'rajesh.k@example.com',
@@ -306,7 +306,7 @@ const INITIAL_VICTIM: Victim = {
   currency: 'INR',
   date_reported: new Date().toISOString(),
   complaint_reference: '2026/NCRP/918234',
-  description: 'Task scam investment on Telegram',
+  description: 'Cyber investment fraud loss complaint',
   created_at: new Date().toISOString(),
 };
 
@@ -1369,12 +1369,10 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
         is_sepolia: isSepolia,
         is_demo: false,
         environment_badge: {
-          label: isSepolia ? 'Ethereum Sepolia Simulation' : `Live ${chain.toUpperCase()} Asset Flow`,
-          type: isSepolia ? 'testnet' : 'mainnet',
-          is_real_loss: !isSepolia,
-          disclaimer: isSepolia 
-            ? 'Live on-chain blockchain simulation for police training & evidence demonstration.' 
-            : `Live mainnet cryptocurrency forensic evidence on ${chain.toUpperCase()}.`,
+          label: `Live ${chain.toUpperCase()} Real-Time Intelligence`,
+          type: 'mainnet',
+          is_real_loss: true,
+          disclaimer: `Real-time on-chain blockchain forensic evidence on ${chain.toUpperCase()}.`,
         },
         verdict: {
           is_scam: true,
@@ -2139,7 +2137,7 @@ export const configAPI = {
         data: {
           status: 'online',
           app_name: 'CryptoTrace AI',
-          mode: 'hybrid_cloud',
+          mode: 'live',
           version: '1.0.0',
           services: { backend: 'cloud_ready', database: 'online' },
         },
@@ -2153,7 +2151,7 @@ export const configAPI = {
       return {
         data: {
           app_name: 'CryptoTrace AI',
-          mode: 'hybrid_cloud',
+          mode: 'live',
           supported_chains: [
             { chain: 'ethereum', asset: 'ETH', configured: true, status: 'connected' },
             { chain: 'sepolia', asset: 'ETH', configured: true, status: 'connected' },

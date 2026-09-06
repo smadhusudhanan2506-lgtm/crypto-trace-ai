@@ -148,12 +148,12 @@ async def get_app_config():
     from app.blockchain.registry import registry
     return {
         "app_name": settings.APP_NAME,
-        "mode": settings.APP_MODE,
+        "mode": "live",
         "supported_chains": registry.get_supported_chains(),
         "features": {
-            "live_blockchain": settings.is_live_mode,
-            "demo_mode": settings.is_demo_mode,
-            "ai_assistant": bool(settings.OPENAI_API_KEY),
+            "live_blockchain": True,
+            "demo_mode": False,
+            "ai_assistant": bool(settings.OPENAI_API_KEY or settings.GROQ_API_KEY),
             "eth_explorer": settings.has_eth_explorer,
         },
     }

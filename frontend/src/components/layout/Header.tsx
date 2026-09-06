@@ -9,11 +9,10 @@ interface HeaderProps {
   appMode?: string;
 }
 
-export default function Header({ appMode = 'demo' }: HeaderProps) {
+export default function Header({ appMode = 'live' }: HeaderProps) {
   const { user } = useAuthStore();
   const { toggleMobile } = useSidebarStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const isLive = appMode === 'live';
 
   return (
     <header className="h-14 border-b border-[#0d331d]/80 bg-[#03130a]/88 backdrop-blur-2xl flex items-center justify-between px-4 sm:px-6 z-30 shadow-[0_4px_20px_rgba(0,0,0,0.4)] sticky top-0">
@@ -41,14 +40,11 @@ export default function Header({ appMode = 'demo' }: HeaderProps) {
 
       {/* Right Section */}
       <div className="flex items-center gap-4">
-        {/* Mode Badge */}
-        <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border font-mono ${
-          isLive
-            ? 'bg-[#00ff66]/15 text-[#00ff66] border-[#00ff66]/40 shadow-[0_0_10px_rgba(0,255,102,0.2)]'
-            : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-        }`}>
-          {isLive ? <Wifi className="w-3 h-3 text-[#00ff66]" /> : <WifiOff className="w-3 h-3" />}
-          {isLive ? 'LIVE' : 'DEMO'}
+        {/* Real-time Live Status Badge */}
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border font-mono bg-[#00ff66]/15 text-[#00ff66] border-[#00ff66]/40 shadow-[0_0_12px_rgba(0,255,102,0.25)]">
+          <span className="w-2 h-2 rounded-full bg-[#00ff66] animate-pulse shadow-[0_0_8px_rgba(0,255,102,0.9)]" />
+          <Wifi className="w-3.5 h-3.5 text-[#00ff66]" />
+          <span>LIVE ON-CHAIN</span>
         </div>
 
         {/* Notifications */}

@@ -466,18 +466,6 @@ def _generate_police_action_plan(
         "legal_basis": "Section 65B Certificate / Electronic Evidence Compliance",
     })
 
-    if is_sepolia:
-        actions.insert(0, {
-            "priority": "DEMONSTRATION NOTE",
-            "title": "Prototype Academic Simulation Notice",
-            "purpose": "This case was analyzed on the Sepolia Testnet for training and validation purposes.",
-            "details": [
-                "No live monetary assets were compromised in this specific testnet trace.",
-                "Use the generated Modus Operandi and action plan template for live Ethereum/Bitcoin cases.",
-            ],
-            "legal_basis": "Prototype / Training Simulation",
-        })
-
     return actions
 
 

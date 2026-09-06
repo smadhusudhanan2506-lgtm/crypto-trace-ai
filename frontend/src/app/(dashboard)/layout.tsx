@@ -15,7 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { isAuthenticated, isLoading, hydrate } = useAuthStore();
   const { collapsedDesktop } = useSidebarStore();
   const router = useRouter();
-  const [appMode, setAppMode] = useState('demo');
+  const [appMode, setAppMode] = useState('live');
 
   useEffect(() => {
     hydrate();

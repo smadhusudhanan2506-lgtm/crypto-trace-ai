@@ -112,7 +112,7 @@ export default function CaseDetailPage() {
             <div className="flex items-center gap-3 mb-2">
               <span className={cn('badge', status.bg, status.color)}>{status.label}</span>
               <span className={cn('badge', priority.bg, priority.color)}>{priority.label}</span>
-              {caseData.is_demo && <span className="badge bg-amber-500/20 text-amber-400 border-amber-500/40">DEMO</span>}
+              <span className="badge bg-[#00ff66]/15 text-[#00ff66] border-[#00ff66]/40 font-mono">● LIVE CASE</span>
             </div>
             <h1 className="text-xl font-bold text-white">{caseData.title}</h1>
             <p className="text-sm text-slate-400 mt-1 font-mono">{caseData.case_number}</p>

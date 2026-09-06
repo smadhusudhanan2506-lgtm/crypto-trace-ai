@@ -276,7 +276,7 @@ export default function VictimsPage() {
             <AlertOctagon className="w-5 h-5 text-red-400 shrink-0 animate-pulse" />
             <div>
               <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wide">
-                🚨 Multi-Victim Syndicate Nexus Detected: &quot;Operation Golden Ledger&quot;
+                🚨 Multi-Victim Syndicate Nexus Detected: &quot;Operation Cipher Shield&quot;
               </h3>
               <p className="text-xs text-slate-300 mt-0.5">
                 AI Cross-Complaint Engine identified shared money mule deposit wallets across multiple NCRP complaints.
