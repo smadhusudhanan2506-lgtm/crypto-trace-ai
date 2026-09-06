@@ -804,10 +804,10 @@ function GraphContent() {
                 <span>1. Crime Typology</span>
               </div>
               <p className="text-sm font-bold text-white leading-tight">
-                {aiAnalysis.victim_correlations?.matched_victims?.[0]?.complaint_description || "Telegram Task & Phishing Fraud"}
+                {aiAnalysis.verdict?.fraud_type || aiAnalysis.modus_operandi?.primary_typology || "Phishing & Illicit Asset Siphoning"}
               </p>
               <p className="text-[11px] text-red-200/80 font-sans mt-0.5">
-                Victim funds stolen via deceptive investment & fake task schemes.
+                {aiAnalysis.victim_correlations?.matched_victims?.[0]?.complaint_description || aiAnalysis.amount_analysis?.tier_description || "Defrauded assets transferred across unhosted addresses."}
               </p>
             </div>
 
@@ -818,10 +818,22 @@ function GraphContent() {
                 <span>2. Pattern Type</span>
               </div>
               <p className="text-sm font-bold text-emerald-200 leading-tight">
-                {aiAnalysis.topology_analysis?.topology_label || "Peel Chain with Exchange Funnel"}
+                {aiAnalysis.topology_analysis?.topology_label || "Multi-Hop Layering Network"}
               </p>
               <p className="text-[11px] text-emerald-300/80 font-sans mt-0.5">
-                Linear fund decay across unhosted mules to break traceability.
+                {aiAnalysis.topology_analysis?.primary_topology === 'STAR_FAN_OUT_DISPERSAL'
+                  ? `Star-topology: 1-to-many asset fan-out across ${graphData?.nodes?.length || 0} temporary burner mules.`
+                  : aiAnalysis.topology_analysis?.primary_topology === 'LINEAR_PEEL_CHAIN'
+                  ? `Peel chain: sequential transfers with ${aiAnalysis.topology_analysis.structural_metrics?.amount_decay_percentage || 0}% balance decay.`
+                  : aiAnalysis.topology_analysis?.primary_topology === 'PEEL_CHAIN_EXCHANGE_FUNNEL'
+                  ? `Peel funnel: progressive mule peeling leading directly into ${traceDetail?.vasp_name || 'VASP'}.`
+                  : aiAnalysis.topology_analysis?.primary_topology === 'FAN_IN_CONSOLIDATION_FUNNEL' || aiAnalysis.topology_analysis?.primary_topology === 'FAN_IN_CONSOLIDATION'
+                  ? 'Reconvergence: merging multiple incoming fraud streams into a central hub.'
+                  : aiAnalysis.topology_analysis?.primary_topology === 'CROSS_CHAIN_BRIDGE_HOP'
+                  ? 'Multi-chain bridge: routing funds across EVM and non-EVM chains to break traces.'
+                  : aiAnalysis.topology_analysis?.primary_topology === 'TORNADO_MIXER_POOL'
+                  ? 'Mixer pool: smart-contract anonymization to sever cryptographic history.'
+                  : 'Sequential multi-hop trail across intermediary unhosted addresses.'}
               </p>
             </div>
 
@@ -832,10 +844,14 @@ function GraphContent() {
                 <span>3. Scammer Purpose</span>
               </div>
               <p className="text-sm font-bold text-purple-200 leading-tight">
-                {aiAnalysis.topology_analysis?.predicted_purpose || "Layered Liquidation via VASP"}
+                {aiAnalysis.topology_analysis?.predicted_purpose || "Layered Fund Obfuscation"}
               </p>
               <p className="text-[11px] text-purple-300/80 font-sans mt-0.5">
-                {traceDetail?.vasp_detected ? `Terminal deposit into ${traceDetail.vasp_name} for fiat off-ramp.` : "Consolidation in suspect wallet before exchange exit."}
+                {traceDetail?.vasp_detected
+                  ? `Terminal deposit into ${traceDetail.vasp_name} for fiat off-ramping (Subpoenable KYC target).`
+                  : aiAnalysis.topology_analysis?.primary_topology === 'STAR_FAN_OUT_DISPERSAL'
+                  ? 'Splitting illicit proceeds across temporary burner wallets to evade blacklisting.'
+                  : 'Bouncing through intermediary mules to distance funds from the victim.'}
               </p>
             </div>
 
@@ -846,10 +862,12 @@ function GraphContent() {
                 <span>4. Velocity & Speed</span>
               </div>
               <p className="text-sm font-bold text-cyan-200 leading-tight">
-                {aiAnalysis.topology_analysis?.structural_metrics?.is_bot_automated ? "Automated Bot Speed (< 120s)" : "Human-Paced Transfer"}
+                {aiAnalysis.topology_analysis?.structural_metrics?.is_bot_automated
+                  ? `Automated Bot Speed (< ${aiAnalysis.topology_analysis.structural_metrics.average_time_delta_seconds || 120}s)`
+                  : 'Human-Paced Transfer'}
               </p>
               <p className="text-[11px] text-cyan-300/80 font-sans mt-0.5">
-                Balance Decay: {aiAnalysis.topology_analysis?.structural_metrics?.amount_decay_percentage || 50}% across hops.
+                Balance Decay: {aiAnalysis.topology_analysis?.structural_metrics?.amount_decay_percentage || 0}% across hops.
               </p>
             </div>
           </div>
@@ -857,7 +875,7 @@ function GraphContent() {
           {/* Forensic Pattern Tags Strip */}
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[#0d331d]/60">
             <span className="text-[11px] font-bold text-slate-400 font-mono">Detected Signatures:</span>
-            {aiAnalysis.topology_analysis?.detected_patterns?.map((p, idx) => (
+            {Array.from(new Map(aiAnalysis.topology_analysis?.detected_patterns?.map(p => [p.code, p]) || []).values()).map((p, idx) => (
               <span
                 key={idx}
                 className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-[#041d0e] text-[#00ff66] border border-[#0d331d] flex items-center gap-1.5"
@@ -866,16 +884,23 @@ function GraphContent() {
                 <span>[{p.code}] {p.name}</span>
               </span>
             ))}
-            {traceDetail?.vasp_detected && (
+            {traceDetail?.vasp_detected && !aiAnalysis.topology_analysis?.detected_patterns?.some(p => p.code === 'EXCHANGE_FUNNEL') && (
               <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-purple-950/50 text-purple-300 border border-purple-500/50 flex items-center gap-1.5">
                 <Target className="w-3 h-3 text-purple-400" />
                 <span>[EXCHANGE_FUNNEL] {traceDetail.vasp_name} Terminal</span>
               </span>
             )}
-            <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-red-950/40 text-red-300 border border-red-500/40 flex items-center gap-1.5">
-              <ShieldAlert className="w-3 h-3 text-red-400" />
-              <span>[CHAINABUSE_REPORTED] 14 Complaints</span>
-            </span>
+            {aiAnalysis.victim_correlations?.total_matches > 0 ? (
+              <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-red-950/40 text-red-300 border border-red-500/40 flex items-center gap-1.5">
+                <ShieldAlert className="w-3 h-3 text-red-400" />
+                <span>[NCRP_COMPLAINTS_LINKED] {aiAnalysis.victim_correlations.total_matches} Verified FIR{aiAnalysis.victim_correlations.total_matches > 1 ? 's' : ''}</span>
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-amber-950/40 text-amber-300 border border-amber-500/40 flex items-center gap-1.5">
+                <ShieldAlert className="w-3 h-3 text-amber-400" />
+                <span>[ON_CHAIN_FLAGGED] High-Risk Heuristics</span>
+              </span>
+            )}
           </div>
         </div>
       )}
