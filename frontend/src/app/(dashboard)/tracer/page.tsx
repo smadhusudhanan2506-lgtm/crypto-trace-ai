@@ -432,21 +432,42 @@ export default function TracerPage() {
 
           {/* Graph Topology & Modus Operandi Intelligence Card */}
           {result.graph_data?.ai_analysis?.topology_analysis && (
-            <div className="glass-card p-5 border border-[#00ff66]/30 bg-[#021309]/95 space-y-4 shadow-[0_0_30px_rgba(0,255,102,0.1)]">
+            <div className={cn(
+              "glass-card p-5 border space-y-4 shadow-xl transition-all",
+              result.graph_data.ai_analysis.verdict?.is_scam
+                ? "border-red-500/40 bg-[#160606]/95 shadow-[0_0_30px_rgba(239,68,68,0.15)]"
+                : "border-[#00ff66]/30 bg-[#021309]/95 shadow-[0_0_30px_rgba(0,255,102,0.1)]"
+            )}>
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#0d331d] pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-[#00ff66]/10 border border-[#00ff66]/40 text-[#00ff66]">
+                  <div className={cn(
+                    "p-2 rounded-lg border",
+                    result.graph_data.ai_analysis.verdict?.is_scam
+                      ? "bg-red-500/10 border-red-500/40 text-red-400"
+                      : "bg-[#00ff66]/10 border-[#00ff66]/40 text-[#00ff66]"
+                  )}>
                     <BrainCircuit className="w-5 h-5 animate-pulse" />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-white font-mono flex items-center gap-2">
-                      <span>Graph Topology & Modus Operandi Intelligence</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider bg-[#00ff66]/20 text-[#00ff66] border border-[#00ff66]/40">
+                      <span>
+                        {result.graph_data.ai_analysis.verdict?.is_scam
+                          ? "Graph Topology & Modus Operandi Intelligence"
+                          : "Graph Topology & Activity Classification"}
+                      </span>
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider border",
+                        result.graph_data.ai_analysis.verdict?.is_scam
+                          ? "bg-red-500/20 text-red-300 border-red-500/40"
+                          : "bg-[#00ff66]/20 text-[#00ff66] border-[#00ff66]/40"
+                      )}>
                         {result.graph_data.ai_analysis.topology_analysis.topology_label}
                       </span>
                     </h3>
                     <p className="text-xs text-emerald-400 font-mono">
-                      Automated topological pattern classification & threat intelligence engine
+                      {result.graph_data.ai_analysis.verdict?.is_scam
+                        ? "Automated topological pattern classification & threat intelligence engine"
+                        : "Automated topological pattern classification & verified clean flow analysis"}
                     </p>
                   </div>
                 </div>
@@ -456,10 +477,15 @@ export default function TracerPage() {
                     href={`https://www.chainabuse.com/address/${result.start_address || (result.graph_data.nodes[1]?.id || result.graph_data.nodes[0]?.id || '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-950/80 border border-red-500/50 text-red-300 text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-[0_0_10px_rgba(239,68,68,0.2)]"
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg border text-xs font-mono font-bold flex items-center gap-1.5 transition-colors",
+                      result.graph_data.ai_analysis.verdict?.is_scam
+                        ? "bg-red-950/40 hover:bg-red-950/80 border-red-500/50 text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.2)]"
+                        : "bg-[#042412]/80 hover:bg-[#042412] border-[#00ff66]/40 text-emerald-300"
+                    )}
                   >
-                    <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
-                    <span>Check Chainabuse Database</span>
+                    <ShieldAlert className={cn("w-3.5 h-3.5", result.graph_data.ai_analysis.verdict?.is_scam ? "text-red-400" : "text-[#00ff66]")} />
+                    <span>Check Public Threat Intel</span>
                     <ExternalLink className="w-3 h-3 opacity-70" />
                   </a>
                 </div>
@@ -476,10 +502,10 @@ export default function TracerPage() {
                         ? "bg-red-950/50 text-red-300 border-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.2)]"
                         : p.severity === 'high'
                         ? "bg-amber-950/50 text-amber-300 border-amber-500/50"
-                        : "bg-cyan-950/50 text-cyan-300 border-cyan-500/50"
+                        : "bg-[#042412] text-[#00ff66] border-[#00ff66]/40"
                     )}
                   >
-                    <AlertOctagon className="w-3.5 h-3.5" />
+                    {result.graph_data?.ai_analysis?.verdict?.is_scam ? <AlertOctagon className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                     <span>[{p.code}] {p.name}</span>
                   </span>
                 ))}
@@ -530,9 +556,16 @@ export default function TracerPage() {
                 <div className="flex items-center justify-between border-b border-[#00ff66]/20 pb-2">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[#00ff66]" />
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">Forensic Intelligence Brief</span>
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                      {result.graph_data.ai_analysis.verdict?.is_scam ? "Forensic Threat Brief" : "Activity Intelligence Brief"}
+                    </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-[#00ff66]/20 text-[#00ff66] border border-[#00ff66]/40">
+                  <span className={cn(
+                    "px-2 py-0.5 rounded text-[10px] uppercase font-bold border",
+                    result.graph_data.ai_analysis.verdict?.is_scam
+                      ? "bg-red-500/20 text-red-300 border-red-500/40"
+                      : "bg-[#00ff66]/20 text-[#00ff66] border-[#00ff66]/40"
+                  )}>
                     {result.graph_data.ai_analysis.topology_analysis.predicted_purpose}
                   </span>
                 </div>
@@ -556,9 +589,15 @@ export default function TracerPage() {
                       <span>Fund Trail Flow</span>
                     </p>
                     <p className="text-xs text-slate-200 font-sans leading-snug">
-                      {result.vasp_detected 
-                        ? `Funds routed from suspect wallet directly into ${result.vasp_name} for exchange liquidation.`
-                        : `Funds dispersed across ${result.hops_completed} hops and currently resting in unhosted staging wallets.`}
+                      {result.graph_data.ai_analysis.verdict?.is_scam ? (
+                        result.vasp_detected 
+                          ? `Funds routed from suspect wallet directly into ${result.vasp_name} for exchange liquidation.`
+                          : `Funds dispersed across ${result.hops_completed} hops and currently resting in unhosted staging wallets.`
+                      ) : (
+                        result.vasp_detected
+                          ? `Direct standard deposit into ${result.vasp_name} custodial infrastructure.`
+                          : `Standard direct peer-to-peer transfer across ${result.hops_completed} hop(s) with clean counterparty history.`
+                      )}
                     </p>
                   </div>
 
@@ -569,10 +608,18 @@ export default function TracerPage() {
                       <span>Destination Endpoint</span>
                     </p>
                     <p className="text-xs text-slate-200 font-sans leading-snug">
-                      {result.vasp_detected ? (
-                        <span>Target VASP: <strong className="text-purple-300">{result.vasp_name}</strong> (Subpoenable KYC Entity)</span>
+                      {result.graph_data.ai_analysis.verdict?.is_scam ? (
+                        result.vasp_detected ? (
+                          <span>Target VASP: <strong className="text-purple-300">{result.vasp_name}</strong> (Subpoenable KYC Entity)</span>
+                        ) : (
+                          <span>Unhosted Private Wallets (Suspect holding address)</span>
+                        )
                       ) : (
-                        <span>Unhosted Private Wallets (No exchange deposit detected)</span>
+                        result.vasp_detected ? (
+                          <span>Target Exchange: <strong className="text-purple-300">{result.vasp_name}</strong> (Standard Custody)</span>
+                        ) : (
+                          <span>Unhosted Counterparty Wallet (Clean balance holding)</span>
+                        )
                       )}
                     </p>
                   </div>
@@ -581,13 +628,17 @@ export default function TracerPage() {
                   <div className="p-3 rounded-lg bg-[#041d0e] border border-[#0d331d] space-y-1">
                     <p className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1.5">
                       <span>🛡️</span>
-                      <span>Immediate Police Action</span>
+                      <span>{result.graph_data.ai_analysis.verdict?.is_scam ? "Immediate Police Action" : "Investigation Assessment"}</span>
                     </p>
                     <p className="text-xs text-slate-200 font-sans leading-snug">
-                      {result.vasp_detected ? (
-                        <span>Serve Section 91 CrPC notice on <strong className="text-amber-300">{result.vasp_name}</strong> to freeze accounts and seize KYC logs.</span>
+                      {result.graph_data.ai_analysis.verdict?.is_scam ? (
+                        result.vasp_detected ? (
+                          <span>Serve Section 91 CrPC notice on <strong className="text-amber-300">{result.vasp_name}</strong> to freeze accounts and seize KYC logs.</span>
+                        ) : (
+                          <span>Place suspect addresses on active cyber cell monitoring & alert Indian exchanges.</span>
+                        )
                       ) : (
-                        <span>Place suspect addresses on active cyber cell monitoring & alert Indian exchanges.</span>
+                        <span>No law enforcement requisition required. Activity verified as standard legitimate on-chain transaction.</span>
                       )}
                     </p>
                   </div>
@@ -602,12 +653,19 @@ export default function TracerPage() {
                     <span>Laundering / Illicit Modus Operandi Indicators</span>
                   </p>
                   <ul className="space-y-1 text-[11px] text-slate-300">
-                    {result.graph_data.ai_analysis.topology_analysis.white_money_contrast.illicit_indicators.map((ind, i) => (
-                      <li key={i} className="flex items-start gap-1.5">
-                        <span className="text-red-400 font-bold">•</span>
-                        <span>{ind}</span>
+                    {result.graph_data.ai_analysis.topology_analysis.white_money_contrast.illicit_indicators.length > 0 ? (
+                      result.graph_data.ai_analysis.topology_analysis.white_money_contrast.illicit_indicators.map((ind, i) => (
+                        <li key={i} className="flex items-start gap-1.5">
+                          <span className="text-red-400 font-bold">•</span>
+                          <span>{ind}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="flex items-start gap-1.5 text-[#00ff66]">
+                        <span className="font-bold">✓</span>
+                        <span>Zero illicit, mixer, or laundering indicators detected.</span>
                       </li>
-                    ))}
+                    )}
                   </ul>
                 </div>
 
