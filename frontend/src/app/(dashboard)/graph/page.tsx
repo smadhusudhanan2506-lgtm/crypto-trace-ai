@@ -1623,7 +1623,7 @@ function GraphContent() {
                           <span className="text-[10px] text-slate-400">({vic.case_number}: {vic.case_title})</span>
                         </div>
                         <p className="text-[11px] text-red-300 mt-0.5">
-                          Reported Loss: <span className="font-bold">₹{vic.amount_lost.toLocaleString()} ({vic.cryptocurrency})</span> — {vic.complaint_description}
+                          Reported Loss: <span className="font-bold">{formatCurrency(vic.amount_lost, 'INR')} ({vic.cryptocurrency || 'ETH'})</span> — {vic.complaint_description}
                         </p>
                       </div>
                       <div className="text-[10px] text-slate-400 shrink-0 font-mono">

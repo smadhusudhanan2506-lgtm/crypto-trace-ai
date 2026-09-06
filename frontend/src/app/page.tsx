@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MatrixBackground from '@/components/layout/MatrixBackground';
 import { authAPI } from '@/lib/api';
@@ -9,11 +9,21 @@ import { Fingerprint, Eye, EyeOff, ArrowRight, UserPlus, LogIn, ShieldAlert } fr
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuthStore();
+  const { login, isAuthenticated, isLoading: authLoading, hydrate } = useAuthStore();
   const [isRegister, setIsRegister] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace('/dashboard');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
   const [form, setForm] = useState({
     email: '',

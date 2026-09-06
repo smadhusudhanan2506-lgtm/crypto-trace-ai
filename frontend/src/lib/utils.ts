@@ -2,12 +2,55 @@
  * CryptoTrace AI — Utility Functions
  */
 
-/** Format a number as currency (USD by default) */
-export function formatCurrency(amount: number, currency = 'USD'): string {
-  if (currency === 'INR') {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+/** Format a number as currency (INR by default, with robust NaN / wei / large number handling) */
+export function formatCurrency(amount: number | string | null | undefined, currency = 'INR'): string {
+  if (amount === null || amount === undefined || amount === '') {
+    return (currency || 'INR').toUpperCase() === 'INR' ? '₹0.00' : '$0.00';
   }
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+
+  let num: number;
+  if (typeof amount === 'number') {
+    num = amount;
+  } else if (typeof amount === 'string') {
+    const cleaned = amount.replace(/[^0-9.-]+/g, '');
+    num = parseFloat(cleaned);
+  } else {
+    num = 0;
+  }
+
+  if (isNaN(num) || !isFinite(num)) {
+    return (currency || 'INR').toUpperCase() === 'INR' ? '₹0.00' : '$0.00';
+  }
+
+  // Auto-detect and normalize wei (e.g. > 10^12) if raw blockchain wei is passed into currency formatter
+  if (num > 1e12) {
+    num = num / 1e18;
+  }
+
+  const curr = (currency || 'INR').toUpperCase();
+  if (curr === 'INR') {
+    try {
+      return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 0,
+      }).format(num);
+    } catch {
+      return `₹${num.toLocaleString('en-IN')}`;
+    }
+  }
+
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: curr,
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+    }).format(num);
+  } catch {
+    return `$${num.toLocaleString('en-US')}`;
+  }
 }
 
 /** Format a crypto amount with appropriate precision */
