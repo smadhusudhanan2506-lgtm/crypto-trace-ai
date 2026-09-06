@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { tracingAPI, blockchainAPI } from '@/lib/api';
-import { truncateAddress, truncateHash, cn, timeAgo } from '@/lib/utils';
+import { truncateAddress, truncateHash, cn, timeAgo, formatDate } from '@/lib/utils';
 import type { TraceDetail, TraceHop, TraceStatus } from '@/types';
 import {
   Search, Play, Loader2, CheckCircle2, XCircle, Network,
@@ -634,7 +634,10 @@ export default function TracerPage() {
                           <span className="text-slate-600 text-xs">Unhosted Mule</span>
                         )}
                       </td>
-                      <td className="text-xs text-slate-500">{timeAgo(h.timestamp)}</td>
+                      <td className="text-xs font-mono">
+                        <span className="text-emerald-300 font-semibold">{timeAgo(h.timestamp)}</span>
+                        <span className="block text-[10px] text-slate-500">{formatDate(h.timestamp)}</span>
+                      </td>
                     </tr>
                   ))}
                   {hops.length === 0 && (
