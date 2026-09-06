@@ -1059,18 +1059,18 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
   // Determine isSepolia
   const isSepolia = chain === 'sepolia';
 
-  // AI Forensic Summary Formulation
+  // AI Forensic Summary Formulation (Main Content Only)
   const suspectNode = nodes.find(n => n.type === 'suspect') || nodes[1] || nodes[0];
   const suspectDisplay = suspectNode ? `${suspectNode.id.substring(0, 8)}...${suspectNode.id.substring(36)}` : 'N/A';
-  const vaspDisplay = vaspDetected ? detectedVaspName : 'Unidentified Private Mules';
+  const vaspDisplay = vaspDetected ? detectedVaspName : 'Unhosted Staging Wallets';
 
   const executiveSummary = vaspDetected
-    ? `🎯 **Key Finding:** On-chain forensic tracing successfully mapped asset trail across ${edges.length} hops on **${chain.toUpperCase()}**.\n` +
-      `🔄 **Money Flow:** Suspect address \`${suspectDisplay}\` routed funds directly into **${vaspDisplay}** for liquidation.\n` +
-      `🛡️ **Law Enforcement Action:** Urgent Section 91 CrPC / Section 94 BNSS preservation notice generated for **${vaspDisplay}** to freeze correlated beneficiary account and KYC identity logs.`
-    : `🎯 **Key Finding:** On-chain fund tracing mapped **${totalTracedValue.toFixed(4)} ${nativeAsset}** across ${nodes.length} wallet entities on **${chain.toUpperCase()}**.\n` +
-      `🔄 **Money Flow:** Funds currently resting in suspect unhosted address \`${suspectDisplay}\` without detected exchange liquidation.\n` +
-      `🛡️ **Law Enforcement Action:** Place suspect wallet address on immediate cyber cell monitoring and alert all registered Indian VASPs for deposit attempts.`;
+    ? `🎯 KEY FINDING: ${totalTracedValue.toFixed(4)} ${nativeAsset} traced across ${edges.length} hops on ${chain.toUpperCase()}.\n` +
+      `🔄 FUND TRAIL: Suspect (${suspectDisplay}) routed assets directly into ${vaspDisplay} for cash-out.\n` +
+      `🛡️ LAW ENFORCEMENT ACTION: Urgent Section 91 CrPC notice to ${vaspDisplay} for account freezing and KYC logs.`
+    : `🎯 KEY FINDING: ${totalTracedValue.toFixed(4)} ${nativeAsset} traced across ${nodes.length} wallets (${edges.length} hops) on ${chain.toUpperCase()}.\n` +
+      `🔄 FUND TRAIL: Assets resting in unhosted suspect wallet (${suspectDisplay}) with no exchange exit detected.\n` +
+      `🛡️ LAW ENFORCEMENT ACTION: Place wallet on cyber cell watchlist and monitor Indian VASPs for deposit attempts.`;
 
   // 1. Degree & structural metrics calculation
   const inDegrees: Record<string, number> = {};
@@ -1303,14 +1303,12 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
   }
 
   const explanationParts = [
-    `🔍 **Topological Analysis:** The fund flow exhibits a **${topologyLabel}** structure comprising ${totalNodes} wallet entities across ${totalEdges} transaction hops.`,
-    `⏱️ **Velocity & Automation:** Average hop duration is **${Math.round(avgTimeSec)} seconds** (${isBotSpeed ? 'Automated Bot Speed' : 'Human Paced'}). Balance decay rate across the trail is **${decayPct.toFixed(1)}%**.`,
+    `🎯 Typology: ${topologyLabel} (${totalNodes} wallets, ${totalEdges} hops on ${chain.toUpperCase()}).`,
+    `⏱️ Velocity: ${Math.round(avgTimeSec)}s avg hop (${isBotSpeed ? 'Automated Speed' : 'Manual Transfer'}) | Decay: ${decayPct.toFixed(1)}%.`,
+    hasFunnel
+      ? `🏛️ Endpoint: Terminated at ${detectedVaspName} — Subpoenable under Section 91 CrPC.`
+      : `🛡️ Status: Funds resting in suspect unhosted address (${suspectDisplay}).`
   ];
-  if (hasFunnel) {
-    explanationParts.push(`🏛️ **Actionable Endpoint:** Trail terminates at **${detectedVaspName}**, establishing an immediate KYC freeze point under Section 91 CrPC.`);
-  } else if (hasPeel) {
-    explanationParts.push(`📉 **Laundering Modus Operandi:** Classic peel chain mechanics where intermediary wallets siphon minor portions while propagating the principal sum forward.`);
-  }
 
   const topologyAnalysis: GraphTopologyAnalysis = {
     primary_topology: primaryTopology,

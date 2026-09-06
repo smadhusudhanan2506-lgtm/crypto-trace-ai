@@ -467,17 +467,73 @@ export default function TracerPage() {
                 </div>
               </div>
 
-              {/* Investigator Explanation & Predicted Purpose */}
-              <div className="p-4 rounded-xl bg-[#011208] border border-[#00ff66]/20 font-mono space-y-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#00ff66]" />
-                  <p className="text-xs font-bold text-white uppercase tracking-wider">
-                    Predicted Criminal Purpose: <span className="text-[#00ff66]">{result.graph_data.ai_analysis.topology_analysis.predicted_purpose}</span>
-                  </p>
+              {/* AI Key Takeaways (Main Content Only) */}
+              <div className="p-4 rounded-xl bg-[#011208] border border-[#00ff66]/30 font-mono space-y-3 shadow-[0_0_15px_rgba(0,255,102,0.05)]">
+                <div className="flex items-center justify-between border-b border-[#00ff66]/20 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#00ff66]" />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">Forensic Intelligence Brief</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-[#00ff66]/20 text-[#00ff66] border border-[#00ff66]/40">
+                    {result.graph_data.ai_analysis.topology_analysis.predicted_purpose}
+                  </span>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed font-sans whitespace-pre-line">
-                  {result.graph_data.ai_analysis.topology_analysis.investigator_explanation}
-                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {/* Card 1: Key Finding */}
+                  <div className="p-3 rounded-lg bg-[#041d0e] border border-[#0d331d] space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-emerald-400 flex items-center gap-1.5">
+                      <span>🎯</span>
+                      <span>Key Finding</span>
+                    </p>
+                    <p className="text-xs text-slate-200 font-sans leading-snug">
+                      <strong className="text-white">{result.graph_data.ai_analysis.topology_analysis.topology_label}</strong> — <strong className="text-emerald-300">{result.total_value.toFixed(4)} {result.graph_data.edges[0]?.asset || 'ETH'}</strong> moved across {result.total_wallets} wallets in {result.hops_completed} hops.
+                    </p>
+                  </div>
+
+                  {/* Card 2: Fund Trail Flow */}
+                  <div className="p-3 rounded-lg bg-[#041d0e] border border-[#0d331d] space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-cyan-400 flex items-center gap-1.5">
+                      <span>🔄</span>
+                      <span>Fund Trail Flow</span>
+                    </p>
+                    <p className="text-xs text-slate-200 font-sans leading-snug">
+                      {result.vasp_detected 
+                        ? `Funds routed from suspect wallet directly into ${result.vasp_name} for exchange liquidation.`
+                        : `Funds dispersed across ${result.hops_completed} hops and currently resting in unhosted staging wallets.`}
+                    </p>
+                  </div>
+
+                  {/* Card 3: Destination Endpoint */}
+                  <div className="p-3 rounded-lg bg-[#041d0e] border border-[#0d331d] space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-purple-400 flex items-center gap-1.5">
+                      <span>🏛️</span>
+                      <span>Destination Endpoint</span>
+                    </p>
+                    <p className="text-xs text-slate-200 font-sans leading-snug">
+                      {result.vasp_detected ? (
+                        <span>Target VASP: <strong className="text-purple-300">{result.vasp_name}</strong> (Subpoenable KYC Entity)</span>
+                      ) : (
+                        <span>Unhosted Private Wallets (No exchange deposit detected)</span>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Card 4: Immediate Action */}
+                  <div className="p-3 rounded-lg bg-[#041d0e] border border-[#0d331d] space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1.5">
+                      <span>🛡️</span>
+                      <span>Immediate Police Action</span>
+                    </p>
+                    <p className="text-xs text-slate-200 font-sans leading-snug">
+                      {result.vasp_detected ? (
+                        <span>Serve Section 91 CrPC notice on <strong className="text-amber-300">{result.vasp_name}</strong> to freeze accounts and seize KYC logs.</span>
+                      ) : (
+                        <span>Place suspect addresses on active cyber cell monitoring & alert Indian exchanges.</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* White Money vs Illicit Contrast Box */}

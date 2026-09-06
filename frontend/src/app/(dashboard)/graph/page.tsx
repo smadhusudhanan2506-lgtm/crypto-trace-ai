@@ -1555,15 +1555,65 @@ function GraphContent() {
                   </div>
                 </div>
 
-                {/* Plain-English Investigator Narrative */}
-                <div className="p-3.5 rounded-xl bg-[#011208] border border-[#00ff66]/20 font-mono space-y-1.5">
-                  <p className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#00ff66]" />
-                    <span>Predicted Scam Purpose: {aiAnalysis.topology_analysis.predicted_purpose}</span>
-                  </p>
-                  <p className="text-xs text-slate-300 leading-relaxed font-sans whitespace-pre-line">
-                    {aiAnalysis.topology_analysis.investigator_explanation}
-                  </p>
+                {/* AI Executive Briefing (Main Content Only) */}
+                <div className="p-3.5 rounded-xl bg-[#011208] border border-[#00ff66]/30 font-mono space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-[#00ff66]/20 pb-1.5">
+                    <p className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#00ff66]" />
+                      <span>Forensic Intelligence Summary</span>
+                    </p>
+                    <span className="text-[10px] text-emerald-400 font-bold uppercase">
+                      {aiAnalysis.topology_analysis.predicted_purpose}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="p-2.5 rounded-lg bg-[#041d0e] border border-[#0d331d] text-xs">
+                      <p className="text-[10px] uppercase font-bold text-emerald-400 flex items-center gap-1">
+                        <span>🎯</span>
+                        <span>Key Finding</span>
+                      </p>
+                      <p className="text-[11px] text-slate-200 mt-0.5">
+                        {aiAnalysis.topology_analysis.topology_label} ({aiAnalysis.topology_analysis.structural_metrics.total_nodes} wallets, {aiAnalysis.topology_analysis.structural_metrics.total_edges} hops).
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-[#041d0e] border border-[#0d331d] text-xs">
+                      <p className="text-[10px] uppercase font-bold text-cyan-400 flex items-center gap-1">
+                        <span>🔄</span>
+                        <span>Fund Trail Flow</span>
+                      </p>
+                      <p className="text-[11px] text-slate-200 mt-0.5">
+                        {traceDetail?.vasp_detected
+                          ? `Funds routed from suspect address into ${traceDetail.vasp_name} for liquidation.`
+                          : `Layered through intermediary mules, resting in unhosted staging wallets.`}
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-[#041d0e] border border-[#0d331d] text-xs">
+                      <p className="text-[10px] uppercase font-bold text-purple-400 flex items-center gap-1">
+                        <span>🏛️</span>
+                        <span>Destination Endpoint</span>
+                      </p>
+                      <p className="text-[11px] text-slate-200 mt-0.5">
+                        {traceDetail?.vasp_detected
+                          ? `Target VASP: ${traceDetail.vasp_name} (Subpoena candidate)`
+                          : `Unhosted Private Staging Wallets`}
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-[#041d0e] border border-[#0d331d] text-xs">
+                      <p className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1">
+                        <span>🛡️</span>
+                        <span>Police Action</span>
+                      </p>
+                      <p className="text-[11px] text-slate-200 mt-0.5">
+                        {traceDetail?.vasp_detected
+                          ? `Issue Section 91 CrPC notice to ${traceDetail.vasp_name} to freeze accounts & KYC.`
+                          : `Watchlist suspect addresses & notify Indian exchanges.`}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* White Money Contrast */}
