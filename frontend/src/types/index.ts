@@ -184,6 +184,7 @@ export interface TraceHop {
 }
 
 export interface TraceStatus {
+  trace_id?: string;
   status: string;
   progress: number;
   message: string;
