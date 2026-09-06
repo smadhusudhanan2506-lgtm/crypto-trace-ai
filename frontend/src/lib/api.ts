@@ -473,105 +473,76 @@ interface ParsedTx {
   tokenTransfers: { from: string; to: string; value: number; symbol: string; tokenAddress: string }[];
 }
 
+async function fetchAlchemyAssetTransfers(address: string, chain: string, direction: 'from' | 'to' = 'from'): Promise<any[]> {
+  const alchemyBaseMap: Record<string, string> = {
+    sepolia: `https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+    ethereum: `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+    polygon: `https://polygon-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+    arbitrum: `https://arb-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+    base: `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+    optimism: `https://opt-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+  };
+
+  const url = alchemyBaseMap[chain.toLowerCase()];
+  if (!url) return [];
+
+  try {
+    const paramObj: Record<string, any> = {
+      fromBlock: '0x0',
+      toBlock: 'latest',
+      category: ['external', 'erc20'],
+      maxCount: '0x19',
+      order: 'desc',
+    };
+    if (direction === 'from') {
+      paramObj.fromAddress = address;
+    } else {
+      paramObj.toAddress = address;
+    }
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'alchemy_getAssetTransfers',
+        params: [paramObj],
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.result?.transfers && Array.isArray(data.result.transfers)) {
+        return data.result.transfers.map((t: any) => ({
+          hash: t.hash,
+          from: (t.from || '').toLowerCase(),
+          to: (t.to || '').toLowerCase(),
+          value: typeof t.value === 'number' ? t.value : 0,
+          asset: t.asset || (chain === 'polygon' ? 'MATIC' : 'ETH'),
+          category: t.category,
+          blockNum: t.blockNum,
+          timeStamp: String(Math.floor(Date.now() / 1000) - 3600),
+          isContract: t.category === 'erc20',
+        }));
+      }
+    }
+  } catch {}
+  return [];
+}
+
 async function fetchMultiChainTx(txHash: string, preferredChain?: string): Promise<ParsedTx | null> {
   const cleanTx = txHash.trim();
   const isEvmHash = cleanTx.startsWith('0x') && cleanTx.length === 66;
   const is64Hex = (!cleanTx.startsWith('0x') && cleanTx.length === 64) || (cleanTx.startsWith('0x') && cleanTx.length === 66);
 
-  const chainsToProbe = preferredChain && EVM_RPC_ENDPOINTS[preferredChain]
-    ? [preferredChain, ...Object.keys(EVM_RPC_ENDPOINTS).filter(c => c !== preferredChain)]
-    : ['ethereum', 'sepolia', 'polygon', 'bnb', 'arbitrum', 'base'];
-
-  // 1. High-Speed Etherscan V2 Multichain Proxy Probe (Direct node level access for all EVM chains)
+  // 1. Parallel EVM Probe across Alchemy Endpoints + BSC
   if (isEvmHash) {
-    for (const chain of chainsToProbe) {
-      const cId = CHAIN_IDS[chain];
-      if (cId) {
-        try {
-          const esUrl = `https://api.etherscan.io/v2/api?chainid=${cId}&module=proxy&action=eth_getTransactionByHash&txhash=${cleanTx}&apikey=${ETHERSCAN_API_KEY}`;
-          const esRes = await fetch(esUrl);
-          if (esRes.ok) {
-            const esJson = await esRes.json();
-            if (esJson.result && esJson.result.hash) {
-              const txData = esJson.result;
-              
-              // Fetch receipt
-              let receipt: any = null;
-              try {
-                const rcptUrl = `https://api.etherscan.io/v2/api?chainid=${cId}&module=proxy&action=eth_getTransactionReceipt&txhash=${cleanTx}&apikey=${ETHERSCAN_API_KEY}`;
-                const rcptRes = await fetch(rcptUrl);
-                if (rcptRes.ok) {
-                  const rcptJson = await rcptRes.json();
-                  receipt = rcptJson?.result;
-                }
-              } catch {}
+    const evmChains = preferredChain && EVM_RPC_ENDPOINTS[preferredChain]
+      ? [preferredChain, ...Object.keys(EVM_RPC_ENDPOINTS).filter(c => c !== preferredChain)]
+      : ['sepolia', 'ethereum', 'polygon', 'arbitrum', 'base', 'bnb'];
 
-              let blockTimestamp = new Date().toISOString();
-              if (txData.blockNumber) {
-                try {
-                  const blkUrl = `https://api.etherscan.io/v2/api?chainid=${cId}&module=proxy&action=eth_getBlockByNumber&tag=${txData.blockNumber}&boolean=false&apikey=${ETHERSCAN_API_KEY}`;
-                  const blkRes = await fetch(blkUrl);
-                  if (blkRes.ok) {
-                    const blkJson = await blkRes.json();
-                    if (blkJson.result?.timestamp) {
-                      blockTimestamp = new Date(parseInt(blkJson.result.timestamp, 16) * 1000).toISOString();
-                    }
-                  }
-                } catch {}
-              }
-
-              const valueWei = txData.value ? parseInt(txData.value, 16) : 0;
-              const nativeAsset = chain === 'polygon' ? 'MATIC' : chain === 'bnb' ? 'BNB' : 'ETH';
-              const valueNative = valueWei / 1e18;
-
-              const gasPriceWei = txData.gasPrice ? parseInt(txData.gasPrice, 16) : 0;
-              const gasUsed = receipt?.gasUsed ? parseInt(receipt.gasUsed, 16) : 21000;
-              const status = receipt?.status ? (parseInt(receipt.status, 16) === 1 ? 'confirmed' : 'failed') : 'confirmed';
-
-              // Parse ERC-20 Transfer logs
-              const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
-              const tokenTransfers: ParsedTx['tokenTransfers'] = [];
-
-              if (receipt?.logs && Array.isArray(receipt.logs)) {
-                for (const log of receipt.logs) {
-                  if (log.topics && log.topics[0] === TRANSFER_TOPIC && log.topics.length >= 3) {
-                    const from = '0x' + log.topics[1].slice(-40).toLowerCase();
-                    const to = '0x' + log.topics[2].slice(-40).toLowerCase();
-                    const rawVal = log.data ? parseInt(log.data, 16) : 0;
-                    const isStable = log.address?.toLowerCase().includes('dac17f958') || log.address?.toLowerCase().includes('a0b86991');
-                    const decimals = isStable ? 6 : 18;
-                    const tokenVal = rawVal / Math.pow(10, decimals);
-                    const symbol = isStable ? 'USDT' : 'ERC20';
-                    tokenTransfers.push({ from, to, value: tokenVal, symbol, tokenAddress: log.address });
-                  }
-                }
-              }
-
-              return {
-                hash: txData.hash,
-                chain,
-                from: (txData.from || '').toLowerCase(),
-                to: (txData.to || (tokenTransfers.length > 0 ? tokenTransfers[0].to : '')).toLowerCase(),
-                value: tokenTransfers.length > 0 ? tokenTransfers[0].value : valueNative,
-                asset: tokenTransfers.length > 0 ? tokenTransfers[0].symbol : nativeAsset,
-                blockNumber: txData.blockNumber ? parseInt(txData.blockNumber, 16) : null,
-                blockTimestamp,
-                status,
-                gasUsed,
-                gasPriceGwei: gasPriceWei / 1e9,
-                isContract: Boolean(!txData.to || (receipt?.contractAddress) || (txData.input && txData.input !== '0x')),
-                tokenTransfers,
-              };
-            }
-          }
-        } catch {}
-      }
-    }
-  }
-
-  // 2. Direct RPC Probe across Alchemy & Public Nodes
-  if (isEvmHash) {
-    for (const chain of chainsToProbe) {
+    const probePromises = evmChains.map(async (chain) => {
       try {
         const txData = await rpcPost(chain, 'eth_getTransactionByHash', [cleanTx]);
         if (txData && txData.hash) {
@@ -579,10 +550,12 @@ async function fetchMultiChainTx(txHash: string, preferredChain?: string): Promi
           
           let blockTimestamp = new Date().toISOString();
           if (txData.blockHash) {
-            const blockData = await rpcPost(chain, 'eth_getBlockByHash', [txData.blockHash, false]);
-            if (blockData && blockData.timestamp) {
-              blockTimestamp = new Date(parseInt(blockData.timestamp, 16) * 1000).toISOString();
-            }
+            try {
+              const blockData = await rpcPost(chain, 'eth_getBlockByHash', [txData.blockHash, false]);
+              if (blockData && blockData.timestamp) {
+                blockTimestamp = new Date(parseInt(blockData.timestamp, 16) * 1000).toISOString();
+              }
+            } catch {}
           }
 
           const valueWei = txData.value ? parseInt(txData.value, 16) : 0;
@@ -602,7 +575,7 @@ async function fetchMultiChainTx(txHash: string, preferredChain?: string): Promi
                 const from = '0x' + log.topics[1].slice(-40).toLowerCase();
                 const to = '0x' + log.topics[2].slice(-40).toLowerCase();
                 const rawVal = log.data ? parseInt(log.data, 16) : 0;
-                const isStable = log.address?.toLowerCase().includes('dac17f958') || log.address?.toLowerCase().includes('a0b86991');
+                const isStable = log.address?.toLowerCase().includes('dac17f958') || log.address?.toLowerCase().includes('a0b86991') || log.address?.toLowerCase().includes('aa8e23fb1079ea71e0a56f48a2aa51851d8433d0');
                 const decimals = isStable ? 6 : 18;
                 const tokenVal = rawVal / Math.pow(10, decimals);
                 const symbol = isStable ? 'USDT' : 'ERC20';
@@ -625,13 +598,55 @@ async function fetchMultiChainTx(txHash: string, preferredChain?: string): Promi
             gasPriceGwei: gasPriceWei / 1e9,
             isContract: Boolean(!txData.to || (receipt?.contractAddress) || (txData.input && txData.input !== '0x')),
             tokenTransfers,
-          };
+          } as ParsedTx;
         }
       } catch {}
+      return null;
+    });
+
+    const evmResults = await Promise.allSettled(probePromises);
+    for (const r of evmResults) {
+      if (r.status === 'fulfilled' && r.value) {
+        return r.value;
+      }
+    }
+
+    // Secondary EVM check via Etherscan V2 Proxy
+    for (const chain of evmChains) {
+      const cId = CHAIN_IDS[chain];
+      if (cId) {
+        try {
+          const esUrl = `https://api.etherscan.io/v2/api?chainid=${cId}&module=proxy&action=eth_getTransactionByHash&txhash=${cleanTx}&apikey=${ETHERSCAN_API_KEY}`;
+          const esRes = await fetch(esUrl);
+          if (esRes.ok) {
+            const esJson = await esRes.json();
+            if (esJson.result && esJson.result.hash) {
+              const txData = esJson.result;
+              const valueWei = txData.value ? parseInt(txData.value, 16) : 0;
+              const nativeAsset = chain === 'polygon' ? 'MATIC' : chain === 'bnb' ? 'BNB' : 'ETH';
+              return {
+                hash: txData.hash,
+                chain,
+                from: (txData.from || '').toLowerCase(),
+                to: (txData.to || '').toLowerCase(),
+                value: valueWei / 1e18,
+                asset: nativeAsset,
+                blockNumber: txData.blockNumber ? parseInt(txData.blockNumber, 16) : null,
+                blockTimestamp: new Date().toISOString(),
+                status: 'confirmed',
+                gasUsed: 21000,
+                gasPriceGwei: 0,
+                isContract: false,
+                tokenTransfers: [],
+              };
+            }
+          }
+        } catch {}
+      }
     }
   }
 
-  // 3. Tron Network Probe (Tronscan API)
+  // 2. Tron Network Probe (Tronscan API)
   if (is64Hex) {
     const rawTronHash = cleanTx.startsWith('0x') ? cleanTx.slice(2) : cleanTx;
     try {
@@ -674,7 +689,7 @@ async function fetchMultiChainTx(txHash: string, preferredChain?: string): Promi
     } catch {}
   }
 
-  // 4. Bitcoin Network Probe (Blockstream & Mempool API)
+  // 3. Bitcoin Network Probe (Blockstream & Mempool API)
   if (!cleanTx.startsWith('0x') && cleanTx.length === 64) {
     try {
       const btcRes = await fetch(`https://blockstream.info/api/tx/${cleanTx}`);
@@ -705,15 +720,15 @@ async function fetchMultiChainTx(txHash: string, preferredChain?: string): Promi
   return null;
 }
 
-// Fetch real transactions for a wallet address from Etherscan V2 + Blockscout + Mempool
+// Fetch real transactions for a wallet address from Alchemy Transfers + Etherscan V2 + Tronscan + Blockstream
 async function fetchAddressTransactions(address: string, chain: string): Promise<any[]> {
   const chainLower = (chain || 'sepolia').toLowerCase();
-  const chainId = CHAIN_IDS[chainLower] || (chainLower === 'bitcoin' || chainLower === 'btc' ? null : 11155111);
+  const cleanAddr = address.toLowerCase();
 
-  // 1. Bitcoin Address Query via Mempool.space and Blockstream
-  if (chainLower === 'bitcoin' || chainLower === 'btc' || address.startsWith('bc1') || address.startsWith('1') || address.startsWith('3')) {
+  // 1. Bitcoin Address Query
+  if (chainLower === 'bitcoin' || chainLower === 'btc' || cleanAddr.startsWith('bc1') || cleanAddr.startsWith('1') || cleanAddr.startsWith('3')) {
     try {
-      const btcRes = await fetch(`https://mempool.space/api/address/${address}/txs`);
+      const btcRes = await fetch(`https://blockstream.info/api/address/${cleanAddr}/txs`);
       if (btcRes.ok) {
         const btcTxs = await btcRes.json();
         if (Array.isArray(btcTxs)) {
@@ -736,80 +751,64 @@ async function fetchAddressTransactions(address: string, chain: string): Promise
     } catch {}
   }
 
-  // 2. EVM Chains Query via Etherscan V2 API (normal txs + ERC20 token transfers + internal txs)
-  if (chainId) {
+  // 2. Tron Address Query
+  if (cleanAddr.startsWith('t') || chainLower === 'tron') {
     try {
-      const normalUrl = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=1&offset=15&sort=desc&apikey=${ETHERSCAN_API_KEY}`;
-      const tokenUrl = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=tokentx&address=${address}&page=1&offset=15&sort=desc&apikey=${ETHERSCAN_API_KEY}`;
-      const internalUrl = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=txlistinternal&address=${address}&page=1&offset=15&sort=desc&apikey=${ETHERSCAN_API_KEY}`;
-
-      const [normalRes, tokenRes, internalRes] = await Promise.allSettled([
-        fetch(normalUrl).then(r => r.json()),
-        fetch(tokenUrl).then(r => r.json()),
-        fetch(internalUrl).then(r => r.json()),
-      ]);
-
-      const merged: any[] = [];
-      const nativeAsset = chainLower === 'polygon' ? 'MATIC' : chainLower === 'bnb' || chainLower === 'bsc' ? 'BNB' : 'ETH';
-
-      if (normalRes.status === 'fulfilled' && Array.isArray(normalRes.value?.result)) {
-        for (const t of normalRes.value.result) {
-          merged.push({
-            hash: t.hash,
-            from: (t.from || '').toLowerCase(),
-            to: (t.to || '').toLowerCase(),
-            value: parseInt(t.value || '0') / 1e18,
-            asset: nativeAsset,
-            timeStamp: t.timeStamp,
-            isContract: Boolean(t.input && t.input !== '0x'),
+      const tronRes = await fetch(`https://apilist.tronscanapi.com/api/transaction?sort=-timestamp&count=true&limit=20&address=${cleanAddr}`);
+      if (tronRes.ok) {
+        const tJson = await tronRes.json();
+        if (tJson.data && Array.isArray(tJson.data)) {
+          return tJson.data.map((t: any) => {
+            let val = 0;
+            let asset = 'TRX';
+            if (t.trc20TransferInfo && t.trc20TransferInfo.length > 0) {
+              const trc = t.trc20TransferInfo[0];
+              const dec = parseInt(trc.decimals || '6');
+              val = parseInt(trc.amount_str || '0') / Math.pow(10, dec);
+              asset = trc.symbol || 'USDT';
+            } else if (t.contractData?.amount) {
+              val = parseInt(t.contractData.amount) / 1e6;
+            }
+            return {
+              hash: t.hash,
+              from: (t.ownerAddress || '').toLowerCase(),
+              to: (t.toAddress || '').toLowerCase(),
+              value: val,
+              asset,
+              timeStamp: t.timestamp ? String(Math.floor(t.timestamp / 1000)) : String(Math.floor(Date.now() / 1000)),
+              isContract: Boolean(t.trc20TransferInfo?.length),
+            };
           });
         }
-      }
-
-      if (tokenRes.status === 'fulfilled' && Array.isArray(tokenRes.value?.result)) {
-        for (const t of tokenRes.value.result) {
-          const decimals = parseInt(t.tokenDecimal || '18');
-          merged.push({
-            hash: t.hash,
-            from: (t.from || '').toLowerCase(),
-            to: (t.to || '').toLowerCase(),
-            value: parseInt(t.value || '0') / Math.pow(10, decimals),
-            asset: t.tokenSymbol || 'TOKEN',
-            timeStamp: t.timeStamp,
-            isContract: true,
-          });
-        }
-      }
-
-      if (internalRes.status === 'fulfilled' && Array.isArray(internalRes.value?.result)) {
-        for (const t of internalRes.value.result) {
-          merged.push({
-            hash: t.hash,
-            from: (t.from || '').toLowerCase(),
-            to: (t.to || '').toLowerCase(),
-            value: parseInt(t.value || '0') / 1e18,
-            asset: nativeAsset,
-            timeStamp: t.timeStamp,
-            isContract: true,
-          });
-        }
-      }
-
-      if (merged.length > 0) {
-        return merged.sort((a, b) => parseInt(b.timeStamp || '0') - parseInt(a.timeStamp || '0'));
       }
     } catch {}
   }
 
-  // 3. Fallback to Blockscout Open API
-  const explorerApi = BLOCKSCOUT_APIS[chainLower] || BLOCKSCOUT_APIS.ethereum;
+  // 3. Alchemy Asset Transfers (Direct indexed on-chain transfer log for EVM)
+  const [alchemyOut, alchemyIn] = await Promise.all([
+    fetchAlchemyAssetTransfers(cleanAddr, chainLower, 'from'),
+    fetchAlchemyAssetTransfers(cleanAddr, chainLower, 'to'),
+  ]);
+  const alchemyMerged = [...alchemyOut, ...alchemyIn];
+  if (alchemyMerged.length > 0) {
+    return alchemyMerged.sort((a, b) => (b.blockNum || 0) - (a.blockNum || 0));
+  }
+
+  // 4. Etherscan V2 Multichain API (Normal + Token Transfers)
+  const chainId = CHAIN_IDS[chainLower] || 11155111;
   try {
-    const res = await fetch(`${explorerApi}?module=account&action=txlist&address=${address}&page=1&offset=15&sort=desc`);
-    if (res.ok) {
-      const json = await res.json();
-      if (json && Array.isArray(json.result)) {
-        const nativeAsset = chainLower === 'polygon' ? 'MATIC' : chainLower === 'bnb' || chainLower === 'bsc' ? 'BNB' : 'ETH';
-        return json.result.map((t: any) => ({
+    const normalUrl = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=txlist&address=${cleanAddr}&startblock=0&endblock=99999999&page=1&offset=20&sort=desc&apikey=${ETHERSCAN_API_KEY}`;
+    const tokenUrl = `https://api.etherscan.io/v2/api?chainid=${chainId}&module=account&action=tokentx&address=${cleanAddr}&page=1&offset=20&sort=desc&apikey=${ETHERSCAN_API_KEY}`;
+    const [normRes, tokRes] = await Promise.allSettled([
+      fetch(normalUrl).then(r => r.json()),
+      fetch(tokenUrl).then(r => r.json()),
+    ]);
+    const merged: any[] = [];
+    const nativeAsset = chainLower === 'polygon' ? 'MATIC' : chainLower === 'bnb' || chainLower === 'bsc' ? 'BNB' : 'ETH';
+
+    if (normRes.status === 'fulfilled' && Array.isArray(normRes.value?.result)) {
+      for (const t of normRes.value.result) {
+        merged.push({
           hash: t.hash,
           from: (t.from || '').toLowerCase(),
           to: (t.to || '').toLowerCase(),
@@ -817,8 +816,25 @@ async function fetchAddressTransactions(address: string, chain: string): Promise
           asset: nativeAsset,
           timeStamp: t.timeStamp,
           isContract: Boolean(t.input && t.input !== '0x'),
-        }));
+        });
       }
+    }
+    if (tokRes.status === 'fulfilled' && Array.isArray(tokRes.value?.result)) {
+      for (const t of tokRes.value.result) {
+        const dec = parseInt(t.tokenDecimal || '18');
+        merged.push({
+          hash: t.hash,
+          from: (t.from || '').toLowerCase(),
+          to: (t.to || '').toLowerCase(),
+          value: parseInt(t.value || '0') / Math.pow(10, dec),
+          asset: t.tokenSymbol || 'TOKEN',
+          timeStamp: t.timeStamp,
+          isContract: true,
+        });
+      }
+    }
+    if (merged.length > 0) {
+      return merged.sort((a, b) => parseInt(b.timeStamp || '0') - parseInt(a.timeStamp || '0'));
     }
   } catch {}
 
@@ -848,7 +864,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
   const traceId = `trace-${randomSuffix}`;
   const trimmed = txOrAddr.trim();
   const isTx = (trimmed.startsWith('0x') && trimmed.length === 66) || (!trimmed.startsWith('0x') && trimmed.length === 64);
-  const isAddr = (trimmed.startsWith('0x') && trimmed.length === 42) || trimmed.startsWith('bc1') || trimmed.startsWith('1') || trimmed.startsWith('3') || trimmed.startsWith('T');
+  const isAddr = (trimmed.startsWith('0x') && trimmed.length === 42) || trimmed.startsWith('bc1') || trimmed.startsWith('1') || trimmed.startsWith('3') || trimmed.startsWith('T') || trimmed.startsWith('t');
 
   let chain = chainParam.toLowerCase() || (trimmed.startsWith('0x') ? 'sepolia' : 'bitcoin');
   const nodes: GraphNode[] = [];
@@ -861,177 +877,140 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
   let totalTracedValue = 0;
   let detectedVaspName = '';
   let vaspDetected = false;
-  let vaspConfidence = 0.95;
-  let nativeAsset = chain === 'polygon' ? 'MATIC' : chain === 'bnb' || chain === 'bsc' ? 'BNB' : chain === 'bitcoin' ? 'BTC' : 'ETH';
+  let nativeAsset = chain === 'polygon' ? 'MATIC' : chain === 'bnb' || chain === 'bsc' ? 'BNB' : chain === 'bitcoin' ? 'BTC' : chain === 'tron' ? 'TRX' : 'ETH';
 
   if (isTx) {
     // ─── CASE A: USER PROVIDED A REAL TRANSACTION HASH ─────────────────────
     const primaryTx = await fetchMultiChainTx(trimmed, chain);
     
-    if (primaryTx) {
-      chain = primaryTx.chain;
-      nativeAsset = primaryTx.asset;
-      primaryTxHash = primaryTx.hash;
-      startAddress = primaryTx.from;
-      totalTracedValue = primaryTx.value;
-      visitedTxs.add(primaryTx.hash.toLowerCase());
+    if (!primaryTx) {
+      throw new Error(`Transaction hash "${trimmed}" was not found on Ethereum, Sepolia, Polygon, BSC, Arbitrum, Base, Bitcoin, or Tron. Please check that the hash is valid and confirmed on-chain.`);
+    }
 
-      const victimAddr = primaryTx.from.toLowerCase();
-      const suspectAddr = primaryTx.to.toLowerCase();
-      const vaspCheckHop1 = checkKnownVasp(suspectAddr);
+    chain = primaryTx.chain;
+    nativeAsset = primaryTx.asset;
+    primaryTxHash = primaryTx.hash;
+    startAddress = primaryTx.from;
+    totalTracedValue = primaryTx.value;
+    visitedTxs.add(primaryTx.hash.toLowerCase());
 
-      // Node 0: Victim / Source
-      nodes.push({
-        id: victimAddr,
-        type: 'victim',
-        chain,
-        label: `VICTIM / SENDER (HOP 0)\n${victimAddr.substring(0, 6)}...${victimAddr.substring(38)}`,
-        entity: 'Victim / Source Wallet',
-        hop: 0,
-        confidence: 1.0,
-      });
-      visitedNodes.add(victimAddr);
+    const victimAddr = primaryTx.from.toLowerCase();
+    const suspectAddr = primaryTx.to.toLowerCase();
+    const vaspCheckHop1 = checkKnownVasp(suspectAddr);
 
-      // Node 1: Primary Suspect / Beneficiary
-      const isSuspectVasp = vaspCheckHop1.isVasp;
-      nodes.push({
-        id: suspectAddr,
-        type: isSuspectVasp ? 'vasp' : 'suspect',
-        chain,
-        label: isSuspectVasp 
-          ? `${vaspCheckHop1.name.toUpperCase()} (VASP)\n${suspectAddr.substring(0, 6)}...${suspectAddr.substring(38)}`
-          : `PRIMARY SUSPECT (HOP 1)\n${suspectAddr.substring(0, 6)}...${suspectAddr.substring(38)}`,
-        entity: isSuspectVasp ? vaspCheckHop1.name : 'Primary Suspect / Beneficiary',
-        entity_type: isSuspectVasp ? (vaspCheckHop1.entityType as any) : undefined,
-        hop: 1,
-        confidence: 0.95,
-      });
-      visitedNodes.add(suspectAddr);
+    // Node 0: Victim / Source
+    nodes.push({
+      id: victimAddr,
+      type: 'victim',
+      chain,
+      label: `VICTIM / SENDER (HOP 0)\n${victimAddr.substring(0, 6)}...${victimAddr.substring(38)}`,
+      entity: 'Victim / Source Wallet',
+      hop: 0,
+      confidence: 1.0,
+    });
+    visitedNodes.add(victimAddr);
 
-      // Edge 0 -> 1
-      edges.push({
-        source: victimAddr,
-        target: suspectAddr,
-        tx_hash: primaryTx.hash,
-        amount: primaryTx.value,
-        asset: primaryTx.asset,
-        timestamp: primaryTx.blockTimestamp,
-      });
+    // Node 1: Primary Suspect / Beneficiary
+    const isSuspectVasp = vaspCheckHop1.isVasp;
+    nodes.push({
+      id: suspectAddr,
+      type: isSuspectVasp ? 'vasp' : 'suspect',
+      chain,
+      label: isSuspectVasp 
+        ? `${vaspCheckHop1.name.toUpperCase()} (VASP)\n${suspectAddr.substring(0, 6)}...${suspectAddr.substring(38)}`
+        : `PRIMARY SUSPECT (HOP 1)\n${suspectAddr.substring(0, 6)}...${suspectAddr.substring(38)}`,
+      entity: isSuspectVasp ? vaspCheckHop1.name : 'Primary Suspect / Beneficiary',
+      entity_type: isSuspectVasp ? (vaspCheckHop1.entityType as any) : undefined,
+      hop: 1,
+      confidence: 0.95,
+    });
+    visitedNodes.add(suspectAddr);
 
-      if (isSuspectVasp) {
-        vaspDetected = true;
-        detectedVaspName = vaspCheckHop1.name;
-      } else {
-        // Recursive Multi-Hop BFS Traversal (Hop 2 -> Hop 3 -> Hop 4 -> Hop 5)
-        const bfsQueue: Array<{ address: string; hop: number; parentTxTimestamp?: string }> = [
-          { address: suspectAddr, hop: 1, parentTxTimestamp: primaryTx.blockTimestamp }
-        ];
-        const maxHops = 5;
+    // Edge 0 -> 1
+    edges.push({
+      source: victimAddr,
+      target: suspectAddr,
+      tx_hash: primaryTx.hash,
+      amount: primaryTx.value,
+      asset: primaryTx.asset,
+      timestamp: primaryTx.blockTimestamp,
+    });
 
-        while (bfsQueue.length > 0 && nodes.length < 25) {
-          const current = bfsQueue.shift()!;
-          if (current.hop >= maxHops) continue;
+    if (isSuspectVasp) {
+      vaspDetected = true;
+      detectedVaspName = vaspCheckHop1.name;
+    } else {
+      // Recursive Multi-Hop BFS Traversal (Hop 2 -> Hop 3 -> Hop 4 -> Hop 5)
+      const bfsQueue: Array<{ address: string; hop: number; parentTxTimestamp?: string }> = [
+        { address: suspectAddr, hop: 1, parentTxTimestamp: primaryTx.blockTimestamp }
+      ];
+      const maxHops = 5;
 
-          // Fetch subsequent transactions for current hop address
-          const subTxs = await fetchAddressTransactions(current.address, chain);
-          const outboundTxs = subTxs.filter(t => (t.from || '').toLowerCase() === current.address && !visitedTxs.has((t.hash || '').toLowerCase()) && (t.to || '').toLowerCase() !== current.address);
+      while (bfsQueue.length > 0 && nodes.length < 25) {
+        const current = bfsQueue.shift()!;
+        if (current.hop >= maxHops) continue;
 
-          if (outboundTxs.length > 0) {
-            // Traverse up to 3 outbound branches
-            for (const outTx of outboundTxs.slice(0, 3)) {
-              const recipient = (outTx.to || '').toLowerCase();
-              if (!recipient || recipient === current.address) continue;
-              visitedTxs.add((outTx.hash || '').toLowerCase());
+        // Fetch subsequent transactions for current hop address
+        const subTxs = await fetchAddressTransactions(current.address, chain);
+        const outboundTxs = subTxs.filter(t => (t.from || '').toLowerCase() === current.address && !visitedTxs.has((t.hash || '').toLowerCase()) && (t.to || '').toLowerCase() !== current.address);
 
-              const nextHop = current.hop + 1;
-              const nextVaspCheck = checkKnownVasp(recipient);
-              const isNextVasp = nextVaspCheck.isVasp;
-              const outVal = outTx.value;
-              totalTracedValue += outVal;
+        if (outboundTxs.length > 0) {
+          for (const outTx of outboundTxs.slice(0, 3)) {
+            const recipient = (outTx.to || '').toLowerCase();
+            if (!recipient || recipient === current.address) continue;
+            visitedTxs.add((outTx.hash || '').toLowerCase());
 
-              if (isNextVasp) {
-                vaspDetected = true;
-                detectedVaspName = nextVaspCheck.name;
-              }
+            const nextHop = current.hop + 1;
+            const nextVaspCheck = checkKnownVasp(recipient);
+            const isNextVasp = nextVaspCheck.isVasp;
+            const outVal = outTx.value;
+            totalTracedValue += outVal;
 
-              if (!visitedNodes.has(recipient)) {
-                nodes.push({
-                  id: recipient,
-                  type: isNextVasp ? 'vasp' : (nextHop >= 4 ? 'consolidation' : 'mule'),
-                  chain,
-                  label: isNextVasp
-                    ? `${nextVaspCheck.name.toUpperCase()} (EXCHANGE EXIT)\n${recipient.substring(0, 6)}...${recipient.substring(38)}`
-                    : (nextHop >= 4 ? `CONSOLIDATION HUB (HOP ${nextHop})\n${recipient.substring(0, 6)}...${recipient.substring(38)}` : `INTERMEDIARY MULE (HOP ${nextHop})\n${recipient.substring(0, 6)}...${recipient.substring(38)}`),
-                  entity: isNextVasp ? nextVaspCheck.name : `Layering Intermediary Hop ${nextHop}`,
-                  entity_type: isNextVasp ? (nextVaspCheck.entityType as any) : undefined,
-                  hop: nextHop,
-                  confidence: isNextVasp ? 0.98 : 0.88,
-                });
-                visitedNodes.add(recipient);
-
-                // If not a VASP and within max hops, continue expanding next hop
-                if (!isNextVasp && nextHop < maxHops) {
-                  bfsQueue.push({ address: recipient, hop: nextHop, parentTxTimestamp: outTx.timeStamp });
-                }
-              }
-
-              edges.push({
-                source: current.address,
-                target: recipient,
-                tx_hash: outTx.hash,
-                amount: outVal,
-                asset: outTx.asset || nativeAsset,
-                timestamp: outTx.timeStamp ? new Date(parseInt(outTx.timeStamp) * 1000).toISOString() : new Date().toISOString(),
-              });
+            if (isNextVasp) {
+              vaspDetected = true;
+              detectedVaspName = nextVaspCheck.name;
             }
-          } else {
-            // Address has not moved funds yet — verify live unspent balance
-            const state = await fetchAddressState(current.address, chain);
-            if (state.balance > 0) {
-              const nodeMatch = nodes.find(n => n.id === current.address);
-              if (nodeMatch && !nodeMatch.label.includes('[HOLDING:')) {
-                nodeMatch.label += `\n[HOLDING: ${state.balance.toFixed(4)} ${nativeAsset}]`;
+
+            if (!visitedNodes.has(recipient)) {
+              nodes.push({
+                id: recipient,
+                type: isNextVasp ? 'vasp' : (nextHop >= 4 ? 'consolidation' : 'mule'),
+                chain,
+                label: isNextVasp
+                  ? `${nextVaspCheck.name.toUpperCase()} (EXCHANGE EXIT)\n${recipient.substring(0, 6)}...${recipient.substring(38)}`
+                  : (nextHop >= 4 ? `CONSOLIDATION HUB (HOP ${nextHop})\n${recipient.substring(0, 6)}...${recipient.substring(38)}` : `INTERMEDIARY MULE (HOP ${nextHop})\n${recipient.substring(0, 6)}...${recipient.substring(38)}`),
+                entity: isNextVasp ? nextVaspCheck.name : `Layering Intermediary Hop ${nextHop}`,
+                entity_type: isNextVasp ? (nextVaspCheck.entityType as any) : undefined,
+                hop: nextHop,
+                confidence: isNextVasp ? 0.98 : 0.88,
+              });
+              visitedNodes.add(recipient);
+
+              if (!isNextVasp && nextHop < maxHops) {
+                bfsQueue.push({ address: recipient, hop: nextHop, parentTxTimestamp: outTx.timeStamp });
               }
+            }
+
+            edges.push({
+              source: current.address,
+              target: recipient,
+              tx_hash: outTx.hash,
+              amount: outVal,
+              asset: outTx.asset || nativeAsset,
+              timestamp: outTx.timeStamp ? (outTx.timeStamp.length > 10 ? outTx.timeStamp : new Date(parseInt(outTx.timeStamp) * 1000).toISOString()) : new Date().toISOString(),
+            });
+          }
+        } else {
+          // Address has not moved funds yet — verify live unspent balance
+          const state = await fetchAddressState(current.address, chain);
+          if (state.balance > 0) {
+            const nodeMatch = nodes.find(n => n.id === current.address);
+            if (nodeMatch && !nodeMatch.label.includes('[HOLDING:')) {
+              nodeMatch.label += `\n[HOLDING: ${state.balance.toFixed(4)} ${nativeAsset}]`;
             }
           }
         }
       }
-    } else {
-      // If transaction is brand new, pending in mempool, or unindexed, construct genuine entry for the exact hash
-      primaryTxHash = trimmed;
-      const shortHash = `${trimmed.substring(0, 8)}...${trimmed.substring(trimmed.length - 6)}`;
-      startAddress = `0x_sender_${trimmed.substring(2, 10)}`;
-      const suspectAddr = `0x_recipient_${trimmed.substring(trimmed.length - 8)}`;
-      totalTracedValue = 0;
-
-      nodes.push(
-        { 
-          id: startAddress, 
-          type: 'victim', 
-          chain, 
-          label: `ON-CHAIN SENDER\n${shortHash}`, 
-          entity: 'Transaction Origin', 
-          hop: 0, 
-          confidence: 0.90 
-        },
-        { 
-          id: suspectAddr, 
-          type: 'suspect', 
-          chain, 
-          label: `ON-CHAIN BENEFICIARY\n[TXID: ${shortHash}]`, 
-          entity: 'Broadcast Beneficiary', 
-          hop: 1, 
-          confidence: 0.85 
-        }
-      );
-      edges.push({
-        source: startAddress,
-        target: suspectAddr,
-        tx_hash: primaryTxHash,
-        amount: 0,
-        asset: nativeAsset,
-        timestamp: new Date().toISOString(),
-      });
     }
   } else {
     // ─── CASE B: USER PROVIDED A WALLET ADDRESS ─────────────────────────────

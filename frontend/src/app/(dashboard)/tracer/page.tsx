@@ -126,8 +126,8 @@ export default function TracerPage() {
       setTraceId(res.data.trace_id);
       pollStatus(res.data.trace_id);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { detail?: string } } };
-      setError(axiosErr.response?.data?.detail || 'Failed to start trace.');
+      const errObj = err as { response?: { data?: { detail?: string } }; message?: string };
+      setError(errObj.response?.data?.detail || errObj.message || 'Failed to start trace.');
       setTracing(false);
     }
   };
