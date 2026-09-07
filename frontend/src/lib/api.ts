@@ -1029,20 +1029,45 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
   } else {
     // ─── CASE B: USER PROVIDED A WALLET ADDRESS ─────────────────────────────
     startAddress = trimmed.toLowerCase();
-    primaryTxHash = `0x_addr_trace_${startAddress.substring(0, 10)}`;
+    
+    // Auto-probe multi-chain in parallel for EVM addresses if chain is default or needs verification
+    let txList = await fetchAddressTransactions(startAddress, chain);
+    let state = await fetchAddressState(startAddress, chain);
 
-    // Auto-probe address state
-    const state = await fetchAddressState(startAddress, chain);
+    if (txList.length === 0 && startAddress.startsWith('0x') && startAddress.length === 42) {
+      const candidateChains = ['ethereum', 'polygon', 'arbitrum', 'base', 'bnb', 'sepolia'].filter(c => c !== chain);
+      const probeResults = await Promise.all(
+        candidateChains.map(async (c) => {
+          try {
+            const [txs, st] = await Promise.all([
+              fetchAddressTransactions(startAddress, c),
+              fetchAddressState(startAddress, c),
+            ]);
+            return { chain: c, txs, state: st, score: txs.length * 10 + (st.balance > 0 ? 50 : 0) + st.txCount };
+          } catch {
+            return { chain: c, txs: [], state: { balance: 0, isContract: false, txCount: 0 }, score: 0 };
+          }
+        })
+      );
+
+      probeResults.sort((a, b) => b.score - a.score);
+      if (probeResults.length > 0 && probeResults[0].score > 0) {
+        chain = probeResults[0].chain;
+        txList = probeResults[0].txs;
+        state = probeResults[0].state;
+        nativeAsset = chain === 'polygon' ? 'MATIC' : chain === 'bnb' || chain === 'bsc' ? 'BNB' : 'ETH';
+      }
+    }
+
+    primaryTxHash = txList.length > 0 ? txList[0].hash : `0x_addr_trace_${startAddress.substring(0, 10)}`;
     const vaspCheck = checkKnownVasp(startAddress);
-    const txList = await fetchAddressTransactions(startAddress, chain);
-
     const isVasp = vaspCheck.isVasp;
     if (isVasp) {
       vaspDetected = true;
       detectedVaspName = vaspCheck.name;
     }
 
-    // Center Node: Target Wallet
+    // Center Node: Target Wallet (Hop 1)
     nodes.push({
       id: startAddress,
       type: isVasp ? 'vasp' : 'suspect',
@@ -1069,12 +1094,16 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
         totalTracedValue += inVal;
         visitedTxs.add((inTx.hash || '').toLowerCase());
 
+        const inVasp = checkKnownVasp(sender);
         nodes.push({
           id: sender,
-          type: 'victim',
+          type: inVasp.isVasp ? 'vasp' : 'victim',
           chain,
-          label: `INFLOW SOURCE ${i + 1}\n${sender.substring(0, 6)}...${sender.substring(38)}`,
-          entity: `Inflow Origin ${i + 1}`,
+          label: inVasp.isVasp
+            ? `${inVasp.name.toUpperCase()} (DEPOSIT SOURCE)\n${sender.substring(0, 6)}...${sender.substring(38)}`
+            : `INFLOW SOURCE ${i + 1}\n${sender.substring(0, 6)}...${sender.substring(38)}`,
+          entity: inVasp.isVasp ? inVasp.name : `Inflow Origin ${i + 1}`,
+          entity_type: inVasp.isVasp ? (inVasp.entityType as any) : undefined,
           hop: 0,
           confidence: 0.92,
         });
@@ -1086,12 +1115,12 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
           tx_hash: inTx.hash,
           amount: inVal,
           asset: inTx.asset || nativeAsset,
-          timestamp: inTx.timeStamp ? new Date(parseInt(inTx.timeStamp) * 1000).toISOString() : new Date().toISOString(),
+          timestamp: inTx.timeStamp ? (inTx.timeStamp.length > 10 ? inTx.timeStamp : new Date(parseInt(inTx.timeStamp) * 1000).toISOString()) : new Date().toISOString(),
         });
       }
 
       // Outflow transactions (target -> beneficiaries / exchanges) Hop 2+
-      const outflows = txList.filter(t => (t.from || '').toLowerCase() === startAddress && (t.to || '').toLowerCase() !== startAddress).slice(0, 3);
+      const outflows = txList.filter(t => (t.from || '').toLowerCase() === startAddress && (t.to || '').toLowerCase() !== startAddress).slice(0, 4);
       const addrBfsQueue: Array<{ address: string; hop: number }> = [];
 
       for (let i = 0; i < outflows.length; i++) {
@@ -1114,7 +1143,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
           type: outVasp.isVasp ? 'vasp' : 'mule',
           chain,
           label: outVasp.isVasp
-            ? `${outVasp.name.toUpperCase()} (EXIT)\n${recipient.substring(0, 6)}...${recipient.substring(38)}`
+            ? `${outVasp.name.toUpperCase()} (EXCHANGE EXIT)\n${recipient.substring(0, 6)}...${recipient.substring(38)}`
             : `OUTFLOW RECIPIENT ${i + 1}\n${recipient.substring(0, 6)}...${recipient.substring(38)}`,
           entity: outVasp.isVasp ? outVasp.name : `Beneficiary ${i + 1}`,
           entity_type: outVasp.isVasp ? (outVasp.entityType as any) : undefined,
@@ -1129,7 +1158,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
           tx_hash: outTx.hash,
           amount: outVal,
           asset: outTx.asset || nativeAsset,
-          timestamp: outTx.timeStamp ? new Date(parseInt(outTx.timeStamp) * 1000).toISOString() : new Date().toISOString(),
+          timestamp: outTx.timeStamp ? (outTx.timeStamp.length > 10 ? outTx.timeStamp : new Date(parseInt(outTx.timeStamp) * 1000).toISOString()) : new Date().toISOString(),
         });
 
         if (!outVasp.isVasp) {
@@ -1180,7 +1209,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
             tx_hash: nTx.hash,
             amount: nextVal,
             asset: nTx.asset || nativeAsset,
-            timestamp: nTx.timeStamp ? new Date(parseInt(nTx.timeStamp) * 1000).toISOString() : new Date().toISOString(),
+            timestamp: nTx.timeStamp ? (nTx.timeStamp.length > 10 ? nTx.timeStamp : new Date(parseInt(nTx.timeStamp) * 1000).toISOString()) : new Date().toISOString(),
           });
 
           if (!nextVasp.isVasp && nextHop < 4) {
