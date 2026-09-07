@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { tracingAPI, analyticsAPI } from '@/lib/api';
+import { tracingAPI, analyticsAPI, checkKnownVasp } from '@/lib/api';
 import { truncateAddress, truncateHash, formatCurrency, cn } from '@/lib/utils';
 import type { TraceDetail, TraceHop, GraphData, GraphNode, GraphEdge, AIAssessment } from '@/types';
 import {
@@ -484,71 +484,66 @@ function GraphContent() {
   const getNodeRoleInfo = (node: GraphNode, levelIdx: number, totalLevels: number, isFirst: boolean, isLast: boolean) => {
     const idLower = node.id.toLowerCase();
     const typeLower = (node.type || '').toLowerCase();
+    const isScam = aiAnalysis?.verdict?.is_scam ?? true;
+    const vaspCheck = checkKnownVasp(node.id);
 
-    if (typeLower === 'victim' || isFirst || idLower.includes('victim') || idLower.includes('v1ct1m')) {
+    if (typeLower === 'victim' || isFirst) {
       return {
-        tag: 'VICTIM WALLET',
-        subtag: 'Source of Defrauded Funds',
+        tag: isScam ? 'VICTIM WALLET (ORIGIN)' : 'SENDER WALLET (HOP 0)',
+        subtag: isScam ? 'Source of Defrauded Funds' : 'Originating Counterparty',
         style: 'border-blue-500/60 bg-blue-950/40 text-blue-300',
         badgeBg: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
         icon: User,
-        alias: 'Victim (Start)',
+        alias: 'Source (Hop 0)',
       };
     }
-    if (typeLower === 'vasp' || node.entity || isLast || idLower.includes('binance') || idLower.includes('28c6c0')) {
+    if (typeLower === 'vasp' || node.entity || vaspCheck.isVasp || (isLast && traceDetail?.vasp_detected)) {
+      const vaspName = node.entity || vaspCheck.name || traceDetail?.vasp_name || 'VASP Exchange';
       return {
-        tag: node.entity ? `${node.entity.toUpperCase()} (VASP)` : 'VASP / EXCHANGE CASHOUT',
-        subtag: 'Centralized Custodial Off-Ramp',
+        tag: `${vaspName.toUpperCase()} (LIQUIDATION EXIT)`,
+        subtag: 'Centralized Custodial / DEX Off-Ramp',
         style: 'border-purple-500/60 bg-purple-950/40 text-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.2)]',
         badgeBg: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
         icon: Globe,
-        alias: 'VASP Endpoint',
+        alias: vaspName,
       };
     }
-    if (idLower.includes('suspect') || idLower.includes('5u5pect') || (levelIdx === 1 && totalLevels > 2)) {
+    if (levelIdx === 1 && totalLevels > 1) {
       return {
-        tag: 'PRIMARY SUSPECT (A)',
-        subtag: 'First Scammer Deposit Nexus',
-        style: 'border-red-500/60 bg-red-950/40 text-red-300 shadow-[0_0_20px_rgba(239,68,68,0.2)]',
-        badgeBg: 'bg-red-500/20 text-red-300 border-red-500/40',
-        icon: AlertOctagon,
-        alias: 'Suspect Nexus A',
+        tag: isScam ? 'PRIMARY SUSPECT NEXUS (HOP 1)' : 'RECIPIENT WALLET (HOP 1)',
+        subtag: isScam ? 'First Scammer Deposit Nexus' : 'Verified Counterparty Holding',
+        style: isScam 
+          ? 'border-red-500/60 bg-red-950/40 text-red-300 shadow-[0_0_20px_rgba(239,68,68,0.2)]'
+          : 'border-[#00ff66]/60 bg-[#042412]/80 text-emerald-200',
+        badgeBg: isScam ? 'bg-red-500/20 text-red-300 border-red-500/40' : 'bg-[#00ff66]/20 text-[#00ff66] border-[#00ff66]/40',
+        icon: isScam ? AlertOctagon : CheckCircle2,
+        alias: isScam ? 'Suspect Nexus' : 'Recipient Wallet',
       };
     }
-    if (idLower.includes('consolidation') || idLower.includes('0xconsol') || (levelIdx === totalLevels - 2 && totalLevels >= 4)) {
+    if (levelIdx === totalLevels - 2 && totalLevels >= 4) {
       return {
-        tag: 'CONSOLIDATION HUB (D)',
-        subtag: 'Fund Merging & Aggregation',
+        tag: `CONSOLIDATION HUB (HOP ${levelIdx})`,
+        subtag: 'Fund Merging & Aggregation Nexus',
         style: 'border-cyan-500/60 bg-cyan-950/40 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.2)]',
         badgeBg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
         icon: Layers,
-        alias: 'Consolidator D',
+        alias: 'Consolidator Hub',
       };
     }
-    if (idLower.includes('branch2') || idLower.includes('mule_c')) {
+    if (dagLayers && dagLayers[levelIdx]?.nodes?.length > 1) {
       return {
-        tag: 'MONEY MULE (C)',
-        subtag: 'Branch 2 Split Wallet',
+        tag: `MONEY MULE (HOP ${levelIdx} SPLIT)`,
+        subtag: 'Branching Intermediary Burner Wallet',
         style: 'border-amber-500/60 bg-amber-950/40 text-amber-300',
         badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
         icon: GitBranch,
-        alias: 'Mule Branch C',
-      };
-    }
-    if (idLower.includes('branch1') || idLower.includes('mule_b')) {
-      return {
-        tag: 'MONEY MULE (B)',
-        subtag: 'Branch 1 Split Wallet',
-        style: 'border-amber-500/60 bg-amber-950/40 text-amber-300',
-        badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-        icon: GitBranch,
-        alias: 'Mule Branch B',
+        alias: 'Intermediary Mule',
       };
     }
 
     return {
       tag: `HOP ${levelIdx} INTERMEDIARY`,
-      subtag: 'Layering Wallet',
+      subtag: 'Sequential Layering Wallet',
       style: 'border-emerald-500/40 bg-[#041d0e]/80 text-emerald-200',
       badgeBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
       icon: Network,
@@ -973,29 +968,58 @@ function GraphContent() {
               {/* VIEW 1: USER-FRIENDLY BRANCHING DAG FLOW TREE */}
               {viewMode === 'tree' ? (
                 <div className="p-3 sm:p-5 md:p-6 overflow-y-auto overscroll-contain flex-1 space-y-4 sm:space-y-6 scrollbar-thin touch-pan-y">
-                  {/* Visual Topology Header Guide */}
+                  {/* Dynamic Visual Topology Header Guide */}
                   <div className="p-3 sm:p-4 rounded-xl bg-[#021309] border border-[#00ff66]/30 crt-hud-box flex flex-col xl:flex-row xl:items-center justify-between gap-3">
                     <div>
                       <h2 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2 crt-phosphor-text">
                         <GitBranch className="w-4 h-4 text-[#00ff66] shrink-0" />
-                        <span>Hierarchical Fund Flow Pipeline (DAG Topology)</span>
+                        <span>Dynamic Multi-Hop Fund Flow Pipeline ({dagLayers.length} Stages)</span>
                       </h2>
-                      <p className="text-[11px] sm:text-xs text-emerald-400/70 font-mono mt-0.5">
-                        Structured Branching Model: Victim &rarr; Suspect (A) &rarr; Mules (B, C Split) &rarr; Consolidator (D Merge) &rarr; VASP
+                      <p className="text-[11px] sm:text-xs text-emerald-400/80 font-mono mt-0.5">
+                        {aiAnalysis?.verdict?.is_scam
+                          ? `AI Forensics: Traced ${traceDetail?.total_value?.toFixed(4) || '0.00'} ${traceDetail?.chain === 'bitcoin' ? 'BTC' : 'ETH'} through ${graphData.nodes.length} verified addresses on ${traceDetail?.chain?.toUpperCase() || 'MAINNET'}.`
+                          : `Verified Ledger Flow: Direct ${traceDetail?.total_value?.toFixed(4) || '0.00'} ${traceDetail?.chain === 'bitcoin' ? 'BTC' : 'ETH'} transfer across ${dagLayers.length} pipeline layer(s).`}
                       </p>
                     </div>
 
-                    {/* Mini Flow Breadcrumbs */}
+                    {/* Dynamic Flow Breadcrumbs from Real DAG Layers */}
                     <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-[11px] font-mono">
-                      <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40">Victim</span>
-                      <span className="text-emerald-500">&rarr;</span>
-                      <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40">Suspect A</span>
-                      <span className="text-emerald-500">&rarr;</span>
-                      <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Mules (B & C)</span>
-                      <span className="text-emerald-500">&rarr;</span>
-                      <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">Consolidator D</span>
-                      <span className="text-emerald-500">&rarr;</span>
-                      <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">VASP</span>
+                      {dagLayers.map((l, idx) => {
+                        const isFirst = idx === 0;
+                        const isLast = idx === dagLayers.length - 1;
+                        const layerNodesCount = l.nodes.length;
+                        const hasVaspNode = l.nodes.some(n => n.type === 'vasp' || checkKnownVasp(n.id).isVasp);
+                        const vaspEntity = l.nodes.find(n => n.entity)?.entity;
+
+                        let badgeColor = "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+                        let labelText = `Hop ${idx} (${layerNodesCount})`;
+
+                        if (isFirst) {
+                          badgeColor = "bg-blue-500/20 text-blue-300 border-blue-500/40";
+                          labelText = aiAnalysis?.verdict?.is_scam ? "Victim Origin" : "Sender (Hop 0)";
+                        } else if (hasVaspNode || isLast && traceDetail?.vasp_detected) {
+                          badgeColor = "bg-purple-500/20 text-purple-300 border-purple-500/40";
+                          labelText = vaspEntity || traceDetail?.vasp_name || "VASP Exit";
+                        } else if (idx === 1) {
+                          badgeColor = aiAnalysis?.verdict?.is_scam ? "bg-red-500/20 text-red-300 border-red-500/40" : "bg-[#00ff66]/20 text-[#00ff66] border-[#00ff66]/40";
+                          labelText = aiAnalysis?.verdict?.is_scam ? "Suspect Nexus" : "Recipient";
+                        } else if (layerNodesCount > 1) {
+                          badgeColor = "bg-amber-500/20 text-amber-300 border-amber-500/40";
+                          labelText = `Mules (${layerNodesCount} Split)`;
+                        } else if (idx === dagLayers.length - 2 && dagLayers.length >= 4) {
+                          badgeColor = "bg-cyan-500/20 text-cyan-300 border-cyan-500/40";
+                          labelText = "Consolidator";
+                        }
+
+                        return (
+                          <div key={idx} className="flex items-center gap-1.5">
+                            <span className={cn("px-2 py-0.5 rounded border font-bold", badgeColor)}>
+                              {labelText}
+                            </span>
+                            {!isLast && <span className="text-emerald-500">&rarr;</span>}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 

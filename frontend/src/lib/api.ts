@@ -1482,114 +1482,87 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
 
   calculatedRiskScore = isSuspiciousCrime ? Math.min(99, Math.max(50, calculatedRiskScore)) : Math.min(30, Math.max(8, calculatedRiskScore));
 
+  // ─── Dynamic AI Forensic Graph Reasoning Engine ───────────────────────────
+  const chainName = chain.toUpperCase();
+  const totalValueFormatted = `${totalTracedValue.toFixed(4)} ${nativeAsset}`;
+  const totalHopsCount = edges.length > 0 ? edges.length : 1;
+  const totalWalletsCount = nodes.length;
+  const avgSpeedSec = Math.round(avgTimeSec);
+  const speedDescriptor = avgSpeedSec < 60 ? `automated sub-minute bot speed (~${avgSpeedSec}s per hop)` : avgSpeedSec < 300 ? `rapid execution (~${Math.round(avgSpeedSec / 60)} mins per hop)` : `staged manual execution (~${Math.round(avgSpeedSec / 3600)} hrs)`;
+  const decayRate = Number(decayPct.toFixed(1));
+  const vaspNameLower = (detectedVaspName || '').toLowerCase();
+  const isInstantSwap = vaspNameLower.includes('fixedfloat') || vaspNameLower.includes('swap') || vaspNameLower.includes('changenow') || vaspNameLower.includes('sideshift');
+  const isDex = vaspNameLower.includes('uniswap') || vaspNameLower.includes('pancake') || vaspNameLower.includes('sushi') || vaspNameLower.includes('router');
+  const isCex = vaspDetected && !isInstantSwap && !isDex;
+
   let primaryTopology = 'STANDARD_P2P_TRANSFER';
-  let topologyLabel = 'Standard Direct Peer-to-Peer Transfer';
+  let topologyLabel = 'Direct Peer-to-Peer Transfer';
   let crimeTypology = 'Standard Legitimate Transfer (Non-Criminal)';
-  let crimeDescription = 'Normal on-chain cryptocurrency transfer between counterparties with no illicit layering or scam indicators.';
+  let crimeDescription = `Standard direct peer-to-peer transfer of ${totalValueFormatted} across ${totalHopsCount} hop(s) on ${chainName} with verified clean counterparty history.`;
   let predictedPurpose = 'Routine Wallet Payment & Asset Holding';
-  let purposeDescription = 'Direct transfer received and held by recipient with no subsequent money laundering activity.';
+  let purposeDescription = `Direct payment received and held by recipient address with zero subsequent money laundering or obfuscation activity observed on ledger.`;
   let riskLevel: 'critical' | 'high' | 'medium' | 'low' = isSuspiciousCrime 
     ? (calculatedRiskScore >= 75 ? 'critical' : 'high') 
     : (calculatedRiskScore >= 25 ? 'medium' : 'low');
 
-  if (hasMixer) {
-    primaryTopology = 'TORNADO_MIXER_POOL';
-    topologyLabel = 'Privacy Mixer & Tumbler Obfuscation Pool';
-    crimeTypology = 'Privacy Mixer & Transaction Trail Sanitization';
-    crimeDescription = 'Illicit assets routed through smart-contract privacy pools to sever on-chain traceability and evade regulatory oversight.';
-    predictedPurpose = 'Cryptographic Traceability Severing & OFAC Sanction Evasion';
-    purposeDescription = 'Attempting to break all cryptographic links before subsequent cash-out.';
-    riskLevel = 'critical';
-  } else if (hasPeel && hasFunnel) {
-    primaryTopology = 'PEEL_CHAIN_EXCHANGE_FUNNEL';
-    topologyLabel = 'Peel Chain with Exchange Cash-Out Funnel';
-    crimeTypology = 'Pig Butchering & Layered Exchange Cashout (Sha Zhu Pan)';
-    crimeDescription = 'Victim funds stolen via deceptive investment tasks or romance schemes, peeled across unhosted mules to an exchange.';
-    predictedPurpose = `Layered Liquidation via ${detectedVaspName || 'Centralized Exchange'}`;
-    purposeDescription = `Systematic peeling across intermediate mules followed by terminal deposit into ${detectedVaspName || 'VASP'} for fiat cash-out.`;
-    riskLevel = 'critical';
-  } else if (hasPeel) {
-    primaryTopology = 'LINEAR_PEEL_CHAIN';
-    topologyLabel = 'Linear Peel Chain Laundering';
-    crimeTypology = 'Ransomware Payout / Extortion Fund Peeling';
-    crimeDescription = 'Linear chain of sequential transfers with incremental balance decay designed to evade single-hop tracing.';
-    predictedPurpose = 'Sequential Mule Layering & Incremental Asset Peeling';
-    purposeDescription = 'Progressive balance peeling across unhosted intermediary wallets to dilute transaction amounts.';
-    riskLevel = 'high';
-  } else if (hasFanOut && (hasFunnel || isSuspiciousCrime)) {
-    primaryTopology = 'STAR_FAN_OUT_DISPERSAL';
-    topologyLabel = 'Star-Topology Fan-Out with Exchange Funnel';
-    crimeTypology = 'Organized Phishing & Syndicate Fan-Out Scheme';
-    crimeDescription = 'Stolen victim assets fractured across burner wallets and layered into exchange deposit accounts.';
-    predictedPurpose = `Syndicate Fund Splitting into ${detectedVaspName || 'VASP'} Exit`;
-    purposeDescription = `Splitting stolen cryptocurrency into smaller batches across temporary mules to evade threshold alarms.`;
-    riskLevel = 'critical';
-  } else if (hasFanOut && edges.length >= 3) {
-    primaryTopology = 'STAR_FAN_OUT_DISPERSAL';
-    topologyLabel = 'Star-Topology Fan-Out Dispersal';
-    crimeTypology = 'Phishing & Automated Wallet Drainer Attack';
-    crimeDescription = 'Compromised credentials or malicious approval drain instantly fractured into multiple burner holding mules.';
-    predictedPurpose = 'Syndicate Fund Splitting across Temporary Burner Wallets';
-    purposeDescription = 'Rapid dispersal of defrauded assets across unhosted burner wallets to prevent unilateral freezing.';
-    riskLevel = 'high';
-  } else if (hasFanIn && hasFunnel) {
-    primaryTopology = 'FAN_IN_CONSOLIDATION_FUNNEL';
-    topologyLabel = 'Fan-In Reconvergence & Exchange Funnel';
-    crimeTypology = 'Multi-Victim Investment Fraud Syndicate';
-    crimeDescription = 'Aggregating stolen funds from multiple victim deposits into a central consolidation nexus before cashing out.';
-    predictedPurpose = `Syndicate Fund Aggregation & Exit via ${detectedVaspName || 'VASP'}`;
-    purposeDescription = `Aggregated proceeds from multiple victim sources pooled and deposited into ${detectedVaspName || 'VASP'} for fiat conversion.`;
-    riskLevel = 'critical';
-  } else if (hasFanIn && edges.length >= 3) {
-    primaryTopology = 'FAN_IN_CONSOLIDATION';
-    topologyLabel = 'Multi-Source Reconvergence & Consolidation';
-    crimeTypology = 'Multi-Victim Fund Aggregation & Staging';
-    crimeDescription = 'Multiple disparate victim streams consolidated into a central syndicate accumulator wallet.';
-    predictedPurpose = 'Centralized Staging & Aggregation before Distribution';
-    purposeDescription = 'Funds pooled in a single nexus address awaiting further money mule forwarding or distribution.';
-    riskLevel = 'high';
-  } else if (hasFunnel && edges.length >= 3) {
-    primaryTopology = 'EXCHANGE_CASH_OUT';
-    topologyLabel = 'Layered Exchange Cash-Out Nexus';
-    crimeTypology = 'Layered Fraud Liquidation via Exchange';
-    crimeDescription = 'Multi-hop routing of cryptocurrency terminating at a centralized custodial exchange account.';
-    predictedPurpose = `Immediate Fiat Off-Ramp via ${detectedVaspName || 'VASP'}`;
-    purposeDescription = `Deposit into custodial account at ${detectedVaspName || 'VASP'} (Subpoenable KYC endpoint under Section 91 CrPC).`;
-    riskLevel = 'high';
-  } else if (hasFunnel && edges.length < 3) {
-    primaryTopology = 'DIRECT_EXCHANGE_DEPOSIT';
-    topologyLabel = 'Direct Exchange Deposit (Single Step)';
-    crimeTypology = 'Standard Exchange Deposit (Routine Transfer)';
-    crimeDescription = 'Direct transfer of cryptocurrency from private wallet into exchange custodial infrastructure.';
-    predictedPurpose = `Direct Deposit into ${detectedVaspName || 'Exchange'}`;
-    purposeDescription = `Direct deposit into user exchange account for trading, staking, or custody.`;
-    riskLevel = 'low';
-    calculatedRiskScore = Math.min(20, calculatedRiskScore);
-  } else if (bridgeHopsCount > 0 && edges.length >= 3) {
-    primaryTopology = 'CROSS_CHAIN_BRIDGE_HOP';
-    topologyLabel = 'Cross-Chain Bridge Hopping';
-    crimeTypology = 'Cross-Chain Bridge Laundering';
-    crimeDescription = 'Routing stolen assets through decentralized cross-chain bridges to disrupt single-chain EVM graph analysis.';
-    predictedPurpose = 'Cross-Chain Forensic Trace Disruption';
-    purposeDescription = 'Assets bridged across blockchains to escape EVM-only automated tracking tools.';
-    riskLevel = 'high';
-  } else if (edges.length >= 4 && isBotSpeed) {
-    primaryTopology = 'MONEY_MULE_LAYERING';
-    topologyLabel = 'Multi-Hop Money Mule Layering';
-    crimeTypology = 'Sequential Money Mule Obfuscation';
-    crimeDescription = 'Sequential transfers through multiple unhosted intermediary wallets to distance the illicit funds from the victim.';
-    predictedPurpose = 'Intermediate Wallet Layering before Cashout';
-    purposeDescription = 'Bouncing cryptocurrency through intermediate unhosted hops to confuse law enforcement tracing.';
-    riskLevel = 'high';
-  } else if (edges.length <= 2) {
-    primaryTopology = 'STANDARD_P2P_TRANSFER';
-    topologyLabel = 'Direct Peer-to-Peer Transfer (Single Hop)';
-    crimeTypology = 'Standard P2P Transfer (Benign)';
-    crimeDescription = 'Standard direct blockchain transfer between two addresses with clean transaction history.';
-    predictedPurpose = 'Routine Wallet Payment & Asset Holding';
-    purposeDescription = 'Direct payment received and held by destination wallet with no subsequent money laundering activity.';
-    riskLevel = 'low';
-    calculatedRiskScore = Math.min(18, calculatedRiskScore);
+  if (isSuspiciousCrime) {
+    if (hasMixer) {
+      primaryTopology = 'TORNADO_MIXER_POOL';
+      topologyLabel = 'Privacy Mixer Smart Contract Anonymization';
+      crimeTypology = 'Privacy Pool Anonymization & History Sanitization';
+      predictedPurpose = 'Cryptographic Trail Severing & Traceability Erasure';
+      crimeDescription = `Perpetrator routed ${totalValueFormatted} directly into privacy mixer smart contracts on ${chainName} to sever the deterministic cryptographic trail between the victim and downstream cash-out endpoints.`;
+      purposeDescription = `To permanently break on-chain forensic traceability and evade AML/CFT regulatory oversight before subsequent off-ramping.`;
+    } else if (isInstantSwap) {
+      primaryTopology = 'INSTANT_SWAP_EXIT';
+      topologyLabel = `Automated Non-KYC Instant Swap via ${detectedVaspName}`;
+      crimeTypology = `Instant Non-Custodial Swap Laundering (${detectedVaspName})`;
+      predictedPurpose = `Non-KYC Asset Conversion via ${detectedVaspName}`;
+      crimeDescription = `Perpetrator moved ${totalValueFormatted} across ${totalWalletsCount} wallets (${totalHopsCount} hops at ${speedDescriptor}) directly terminating into ${detectedVaspName} to execute automated, no-KYC cross-chain or privacy token swaps.`;
+      purposeDescription = `To convert stolen ${nativeAsset} into unmonitored cryptocurrencies or cross-chain assets without undergoing statutory identity verification (AML/KYC evasion).`;
+    } else if (isDex) {
+      primaryTopology = 'DEX_ROUTER_SWAP';
+      topologyLabel = `Decentralized Protocol Swap (${detectedVaspName})`;
+      crimeTypology = `DeFi Liquidity Pool Token Conversion (${detectedVaspName})`;
+      predictedPurpose = `Decentralized Token Swapping & Layering`;
+      crimeDescription = `Defrauded assets of ${totalValueFormatted} routed through ${detectedVaspName} smart contracts to swap stolen tokens into stablecoins (USDT/USDC) before secondary dispersal.`;
+      purposeDescription = `To convert volatile or tainted victim tokens into liquid stablecoins via decentralized liquidity pools before off-ramping.`;
+    } else if (isCex) {
+      primaryTopology = 'EXCHANGE_CASH_OUT';
+      topologyLabel = `Centralized Exchange Liquidation Funnel (${detectedVaspName})`;
+      crimeTypology = `Layered Exchange Cash-Out Nexus (${detectedVaspName})`;
+      predictedPurpose = `Terminal Fiat Liquidation via ${detectedVaspName}`;
+      crimeDescription = `Perpetrator staged ${totalValueFormatted} through ${totalWalletsCount} wallets in ${totalHopsCount} hops, terminating at a custodial deposit account at ${detectedVaspName}.`;
+      purposeDescription = `Terminal liquidation of stolen cryptocurrency into fiat currency / P2P bank transfers through custodial account at ${detectedVaspName} (Subpoenable target under Section 91 CrPC / Section 94 BNSS).`;
+    } else if (hasFanOut && totalWalletsCount >= 4) {
+      primaryTopology = 'STAR_FAN_OUT_DISPERSAL';
+      topologyLabel = `Star-Topology Fan-Out (${totalWalletsCount} Wallets)`;
+      crimeTypology = `Multi-Burner Syndicate Dispersal Scheme`;
+      predictedPurpose = `Preemptive Asset Splitting across Burner Wallets`;
+      crimeDescription = `Perpetrator fractured ${totalValueFormatted} across ${totalWalletsCount - 2} intermediate burner addresses at ${speedDescriptor} to prevent unilateral freezing and dilute transaction volume below AML tripwires.`;
+      purposeDescription = `To split stolen funds into smaller batches across temporary unhosted mules to evade automated threshold alarms and complicate police asset freezing.`;
+    } else if (hasPeel && decayRate > 10) {
+      primaryTopology = 'LINEAR_PEEL_CHAIN';
+      topologyLabel = `Linear Peel Chain (${decayRate}% Siphoned Decay)`;
+      crimeTypology = `Progressive Peel-Chain Siphoning & Layering`;
+      predictedPurpose = `Incremental Mule Layering & Volume Skimming`;
+      crimeDescription = `Sequential fund movement across ${totalHopsCount} hops on ${chainName} with an active balance decay of ${decayRate}%, reflecting progressive transaction skimming at intermediate money mule hops.`;
+      purposeDescription = `To gradually peel off smaller amounts to multiple accomplice wallets while forwarding the residual balance to distance the funds from the initial theft.`;
+    } else if (hasFanIn && totalWalletsCount >= 4) {
+      primaryTopology = 'FAN_IN_CONSOLIDATION';
+      topologyLabel = `Multi-Source Inflow Consolidation (${totalWalletsCount} Wallets)`;
+      crimeTypology = `Multi-Victim Syndicate Fund Aggregation`;
+      predictedPurpose = `Consolidating Multi-Source Proceeds before Liquidation`;
+      crimeDescription = `Multiple independent victim transfers of ${totalValueFormatted} merged into a central consolidation nexus at ${suspectDisplay} to pool proceeds before bulk distribution.`;
+      purposeDescription = `Aggregating fragmented proceeds from multiple defrauded victims into a unified holding pool awaiting coordinated laundering or liquidation.`;
+    } else {
+      primaryTopology = 'MONEY_MULE_LAYERING';
+      topologyLabel = `Sequential Money Mule Trail (${totalHopsCount} Hops)`;
+      crimeTypology = `Sequential Money Mule Obfuscation`;
+      predictedPurpose = `Intermediary Mule Layering before Liquidation`;
+      crimeDescription = `Perpetrator bounced ${totalValueFormatted} through ${totalWalletsCount} unhosted intermediary wallets on ${chainName} at ${speedDescriptor} with ${decayRate}% decay.`;
+      purposeDescription = `To artificially increase the cryptographic hop distance from the victim to delay and exhaust cyber cell forensic tracing.`;
+    }
   }
 
   // Generate clean non-alarmist detected patterns if benign
