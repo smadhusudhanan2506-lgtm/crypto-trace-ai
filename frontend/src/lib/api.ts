@@ -2344,17 +2344,55 @@ export const blockchainAPI = {
   chains: () => api.get('/api/blockchain/chains'),
   identify: async (value: string): Promise<{ data: ChainIdentification }> => {
     try {
-      return await api.get<ChainIdentification>(`/api/blockchain/identify/${encodeURIComponent(value)}`);
-    } catch {
-      const isEth = value.startsWith('0x');
-      return {
-        data: {
-          chain: isEth ? 'sepolia' : 'bitcoin',
-          type: value.length === 66 ? 'transaction' : 'address',
-          confidence: 0.95,
-        },
-      };
+      const res = await api.get<ChainIdentification>(`/api/blockchain/identify/${encodeURIComponent(value)}`);
+      if (res.data?.chain) return res;
+    } catch {}
+
+    const clean = value.trim();
+    if (clean.startsWith('bc1') || clean.startsWith('1') || clean.startsWith('3')) {
+      return { data: { chain: 'bitcoin', type: 'address', confidence: 0.99 } };
     }
+    if (clean.startsWith('T') && clean.length === 34) {
+      return { data: { chain: 'tron', type: 'address', confidence: 0.99 } };
+    }
+    
+    // Check if it's a 66-char EVM tx or 42-char EVM address
+    const isTx = (clean.startsWith('0x') && clean.length === 66) || (!clean.startsWith('0x') && clean.length === 64);
+    if (isTx) {
+      const parsed = await fetchMultiChainTx(clean);
+      if (parsed) {
+        return { data: { chain: parsed.chain, type: 'transaction', confidence: 0.99 } };
+      }
+    }
+
+    if (clean.startsWith('0x') && clean.length === 42) {
+      // Parallel probe EVM chains for active balance/transfers
+      const chains = ['ethereum', 'polygon', 'arbitrum', 'base', 'bnb', 'sepolia'];
+      const probePromises = chains.map(async (c) => {
+        try {
+          const [txs, st] = await Promise.all([
+            fetchAddressTransactions(clean, c),
+            fetchAddressState(clean, c),
+          ]);
+          return { chain: c, count: txs.length, bal: st.balance };
+        } catch {
+          return { chain: c, count: 0, bal: 0 };
+        }
+      });
+      const results = await Promise.all(probePromises);
+      results.sort((a, b) => (b.count * 10 + (b.bal > 0 ? 50 : 0)) - (a.count * 10 + (a.bal > 0 ? 50 : 0)));
+      if (results.length > 0 && (results[0].count > 0 || results[0].bal > 0)) {
+        return { data: { chain: results[0].chain, type: 'address', confidence: 0.98 } };
+      }
+    }
+
+    return {
+      data: {
+        chain: clean.startsWith('0x') ? 'ethereum' : 'bitcoin',
+        type: clean.length >= 64 ? 'transaction' : 'address',
+        confidence: 0.85,
+      },
+    };
   },
   getTransaction: (chain: string, txHash: string) => api.get<NormalizedTransaction>(`/api/blockchain/tx/${chain}/${txHash}`),
   getAddress: (chain: string, address: string) => api.get(`/api/blockchain/address/${chain}/${address}`),

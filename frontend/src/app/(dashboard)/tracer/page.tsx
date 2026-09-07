@@ -55,6 +55,9 @@ export default function TracerPage() {
       ]);
       setResult(traceRes.data);
       setHops(hopsRes.data);
+      if (traceRes.data?.chain) {
+        setChain(traceRes.data.chain);
+      }
     } catch (err) {
       console.error('Load trace error:', err);
     }
@@ -232,7 +235,7 @@ export default function TracerPage() {
         <div className="mt-4 pt-3 border-t border-[#1e293b]/60">
           <p className="text-[11px] font-mono text-slate-400 mb-2 flex items-center gap-1.5">
             <Zap className="w-3.5 h-3.5 text-amber-400" />
-            <span>Live Multi-Chain Forensic Scenarios:</span>
+            <span>Live Forensic Case Presets (Real TXIDs & Real Wallet IDs):</span>
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -244,18 +247,40 @@ export default function TracerPage() {
               }}
               className="px-3 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-950/70 border border-[#00ff66]/50 text-[#00ff66] text-xs font-mono font-bold transition-colors shadow-[0_0_10px_rgba(0,255,102,0.2)]"
             >
-              ⚡ 1. Live Ethereum Mainnet Binance Hot Wallet (0x28c6...1d60)
+              🏷️ Wallet ID: Binance Mainnet Hot Wallet (0x28c6...1d60)
             </button>
             <button
               type="button"
               onClick={() => {
-                setInput('0x9272477a53a8ec8a75df008d34cbddfefd82cf60');
+                setInput('0xd8da6bf26964af9d7eed9e03e53415d37aa96045');
+                setChain('ethereum');
+                setMaxHops(5);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-purple-950/40 hover:bg-purple-950/70 border border-purple-500/50 text-purple-300 text-xs font-mono font-bold transition-colors"
+            >
+              🏷️ Wallet ID: Vitalik Buterin Wallet (0xd8da...6045)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInput('0xe19bc4e3113382f59b61296c87cf69bef8ea584d4b94852f5bcd28c2fb8ea06d');
+                setChain('sepolia');
+                setMaxHops(5);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-950/70 border border-red-500/50 text-red-300 text-xs font-mono font-bold transition-colors"
+            >
+              🔗 TXID: Live Scam Multi-Hop Trail (0xe19b...a06d)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInput('0x3242055aaaeb91b9640a822cacf3d42770f72830f3d9f85576c56ee4af8e22ed');
                 setChain('ethereum');
                 setMaxHops(5);
               }}
               className="px-3 py-1.5 rounded-lg bg-cyan-950/40 hover:bg-cyan-950/70 border border-cyan-500/50 text-cyan-300 text-xs font-mono font-bold transition-colors"
             >
-              ⚡ 2. Live Suspect Fraud Layering Address (0x9272...cf60)
+              🔗 TXID: Live Mainnet Outflow Hash (0x3242...22ed)
             </button>
             <button
               type="button"
@@ -266,18 +291,7 @@ export default function TracerPage() {
               }}
               className="px-3 py-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-950/70 border border-amber-500/50 text-amber-300 text-xs font-mono transition-colors"
             >
-              ⚡ 3. Live Bitcoin Genesis & Active Reserve (1A1z...vfNa)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setInput('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
-                setChain('tron');
-                setMaxHops(5);
-              }}
-              className="px-3 py-1.5 rounded-lg bg-purple-950/40 hover:bg-purple-950/70 border border-purple-500/50 text-purple-300 text-xs font-mono transition-colors"
-            >
-              ⚡ 4. Live Tron USDT Contract Hub (TR7NHq...Lj6t)
+              🪙 Bitcoin: Genesis Reserve (1A1z...vfNa)
             </button>
           </div>
         </div>
