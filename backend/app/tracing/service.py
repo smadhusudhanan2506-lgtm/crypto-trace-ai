@@ -1,6 +1,7 @@
 """
 CryptoTrace AI — Fund Tracing Engine (BFS Graph Traversal + AI Behavioral Investigation)
 The core engine that traces real blockchain fund flows and generates AI forensic assessments.
+Supports Bitcoin, Ethereum, Solana, Tron, EVM chains, Altcoins, and Stablecoins.
 """
 import asyncio
 import logging
@@ -20,7 +21,7 @@ from app.analytics.ai_investigator import run_ai_investigation
 logger = logging.getLogger(__name__)
 
 
-# In-memory task store for background tracing (replaces Redis for simplicity)
+# In-memory task store for background tracing
 _active_traces: Dict[str, dict] = {}
 
 
@@ -43,10 +44,21 @@ async def start_trace(
     """
     Start a blockchain fund tracing job.
     Uses BFS to traverse transaction graph from a starting point,
-    or generates realistic multi-hop forensics for demo/prototype scenarios.
+    supporting native coins, stablecoins, and altcoin tokens.
     """
-    chain = chain or "ethereum"
-    
+    start_tx_hash = (start_tx_hash or "").strip()
+    start_address = (start_address or "").strip()
+    chain = (chain or "").strip().lower()
+
+    # Auto-detect chain if not explicitly given
+    if not chain:
+        val = start_tx_hash or start_address
+        identification = await registry.identify_chain(val)
+        if identification:
+            chain = identification.chain
+        else:
+            chain = "ethereum"
+
     # Create trace record
     trace = Trace(
         id=trace_id,
@@ -68,7 +80,7 @@ async def start_trace(
     _active_traces[trace_id] = {
         "status": "running",
         "progress": 0,
-        "message": "Initializing trace...",
+        "message": f"Initializing multi-chain trace on {chain.upper()}...",
         "hops_completed": 0,
     }
 
@@ -96,11 +108,14 @@ async def start_trace(
         # Real blockchain tracing
         adapter = registry.get_adapter(chain)
         if not adapter:
-            raise ValueError(f"Unsupported blockchain: {chain}")
+            # Fallback to ethereum if adapter not found
+            adapter = registry.get_adapter("ethereum")
+            chain = "ethereum"
+            trace.chain = "ethereum"
 
         # Phase 1: Fetch the starting transaction
-        _active_traces[trace_id]["message"] = "Fetching initial transaction..."
-        _active_traces[trace_id]["progress"] = 5
+        _active_traces[trace_id]["message"] = f"Querying live ledger nodes for {start_tx_hash or start_address}..."
+        _active_traces[trace_id]["progress"] = 10
 
         all_hops: List[TraceHop] = []
         nodes: Dict[str, dict] = {}  # address -> node data
@@ -110,37 +125,48 @@ async def start_trace(
 
         initial_txs: List[NormalizedTransaction] = []
 
+        all_candidate_chains = [
+            "tron", "solana", "polygon", "bnb", "arbitrum",
+            "base", "optimism", "avalanche", "bitcoin", "litecoin", "dogecoin", "ethereum", "sepolia"
+        ]
+
         if start_tx_hash:
             tx = await adapter.get_transaction(start_tx_hash)
             if not tx:
-                for candidate_chain in ["sepolia", "ethereum", "polygon", "bnb", "bitcoin"]:
+                for candidate_chain in all_candidate_chains:
                     if candidate_chain == chain:
                         continue
                     cand_adapter = registry.get_adapter(candidate_chain)
                     if cand_adapter:
-                        tx = await cand_adapter.get_transaction(start_tx_hash)
-                        if tx:
-                            adapter = cand_adapter
-                            chain = candidate_chain
-                            trace.chain = candidate_chain
-                            break
+                        try:
+                            tx = await cand_adapter.get_transaction(start_tx_hash)
+                            if tx:
+                                adapter = cand_adapter
+                                chain = candidate_chain
+                                trace.chain = candidate_chain
+                                break
+                        except Exception:
+                            pass
             if tx:
                 initial_txs.append(tx)
                 await _store_transaction(db, tx)
         elif start_address:
             txs = await adapter.get_transactions_for_address(start_address, limit=10)
             if not txs:
-                for candidate_chain in ["sepolia", "ethereum", "polygon", "bnb", "bitcoin"]:
+                for candidate_chain in all_candidate_chains:
                     if candidate_chain == chain:
                         continue
                     cand_adapter = registry.get_adapter(candidate_chain)
                     if cand_adapter:
-                        txs = await cand_adapter.get_transactions_for_address(start_address, limit=10)
-                        if txs:
-                            adapter = cand_adapter
-                            chain = candidate_chain
-                            trace.chain = candidate_chain
-                            break
+                        try:
+                            txs = await cand_adapter.get_transactions_for_address(start_address, limit=10)
+                            if txs:
+                                adapter = cand_adapter
+                                chain = candidate_chain
+                                trace.chain = candidate_chain
+                                break
+                        except Exception:
+                            pass
             initial_txs.extend(txs)
             for tx in txs:
                 await _store_transaction(db, tx)
@@ -159,20 +185,21 @@ async def start_trace(
                 case_id=case_id,
             )
 
-        _active_traces[trace_id]["message"] = "Building transaction graph..."
-        _active_traces[trace_id]["progress"] = 15
+        _active_traces[trace_id]["message"] = "Building multi-asset transaction graph..."
+        _active_traces[trace_id]["progress"] = 25
 
-        # BFS traversal
-        queue = deque()  # (address, hop_number, source_tx_hash, source_addr, amount, timestamp)
+        # BFS traversal queue items:
+        # (address, hop_number, source_tx_hash, source_addr, amount, timestamp, asset)
+        queue = deque()
 
         # Seed the queue from initial transactions
         for tx in initial_txs:
             visited_txs.add(tx.tx_hash)
 
-            if chain == "bitcoin" and tx.outputs:
+            if chain in ["bitcoin", "litecoin", "dogecoin"] and tx.outputs:
                 for output in tx.outputs:
                     if output.address and output.address not in visited_addrs:
-                        queue.append((output.address, 1, tx.tx_hash, tx.from_address, output.value, tx.block_timestamp))
+                        queue.append((output.address, 1, tx.tx_hash, tx.from_address, output.value, tx.block_timestamp, tx.asset))
                         if tx.from_address and tx.from_address not in nodes:
                             nodes[tx.from_address] = {
                                 "id": tx.from_address,
@@ -181,8 +208,9 @@ async def start_trace(
                                 "label": tx.from_address[:8] + "...",
                             }
             else:
+                # Add primary transfer
                 if tx.to_address and tx.to_address not in visited_addrs:
-                    queue.append((tx.to_address, 1, tx.tx_hash, tx.from_address, tx.amount, tx.block_timestamp))
+                    queue.append((tx.to_address, 1, tx.tx_hash, tx.from_address, tx.amount, tx.block_timestamp, tx.asset))
 
                 if tx.from_address and tx.from_address not in nodes:
                     nodes[tx.from_address] = {
@@ -192,24 +220,25 @@ async def start_trace(
                         "label": tx.from_address[:8] + "...",
                     }
 
+                # Add any secondary token transfers in transaction
                 for tt in tx.token_transfers:
                     if tt.to_address and tt.to_address not in visited_addrs:
-                        queue.append((tt.to_address, 1, tx.tx_hash, tt.from_address, tt.value, tx.block_timestamp))
+                        queue.append((tt.to_address, 1, tx.tx_hash, tt.from_address or tx.from_address, tt.value, tx.block_timestamp, tt.token_symbol))
 
         hop_count = 0
         while queue and hop_count < max_hops:
             level_size = len(queue)
             addresses_this_hop = 0
 
-            _active_traces[trace_id]["message"] = f"Tracing hop {hop_count + 1}/{max_hops}..."
-            _active_traces[trace_id]["progress"] = 15 + int((hop_count / max_hops) * 65)
+            _active_traces[trace_id]["message"] = f"Tracing hop {hop_count + 1}/{max_hops} on {chain.upper()}..."
+            _active_traces[trace_id]["progress"] = 25 + int((hop_count / max_hops) * 55)
             _active_traces[trace_id]["hops_completed"] = hop_count
 
             for _ in range(level_size):
                 if addresses_this_hop >= settings.TRACE_MAX_ADDRESSES_PER_HOP:
                     break
 
-                addr, hop_num, source_tx, source_addr, amount, timestamp = queue.popleft()
+                addr, hop_num, source_tx, source_addr, amount, timestamp, asset = queue.popleft()
 
                 if addr in visited_addrs:
                     continue
@@ -230,7 +259,7 @@ async def start_trace(
                         "target": addr,
                         "tx_hash": source_tx,
                         "amount": amount,
-                        "asset": adapter.native_asset,
+                        "asset": asset or adapter.native_asset,
                         "timestamp": timestamp.isoformat() if timestamp else "",
                     })
 
@@ -241,7 +270,7 @@ async def start_trace(
                     destination_address=addr,
                     tx_hash=source_tx,
                     amount=amount,
-                    asset=adapter.native_asset,
+                    asset=asset or adapter.native_asset,
                     timestamp=timestamp,
                     chain=chain,
                     direction=direction,
@@ -251,7 +280,7 @@ async def start_trace(
 
                 if hop_num < max_hops:
                     try:
-                        await asyncio.sleep(0.2)
+                        await asyncio.sleep(0.15)
                         next_txs = await adapter.get_transactions_for_address(addr, limit=10)
                         for ntx in next_txs:
                             if ntx.tx_hash in visited_txs:
@@ -260,26 +289,37 @@ async def start_trace(
                             await _store_transaction(db, ntx)
 
                             if direction in ("forward", "both"):
-                                if chain == "bitcoin" and ntx.outputs:
+                                if chain in ["bitcoin", "litecoin", "dogecoin"] and ntx.outputs:
                                     for output in ntx.outputs:
                                         if output.address and output.address not in visited_addrs:
-                                            queue.append((output.address, hop_num + 1, ntx.tx_hash, addr, output.value, ntx.block_timestamp))
+                                            queue.append((output.address, hop_num + 1, ntx.tx_hash, addr, output.value, ntx.block_timestamp, ntx.asset))
                                 elif ntx.from_address.lower() == addr.lower() and ntx.to_address:
                                     if ntx.to_address not in visited_addrs:
-                                        queue.append((ntx.to_address, hop_num + 1, ntx.tx_hash, addr, ntx.amount, ntx.block_timestamp))
+                                        queue.append((ntx.to_address, hop_num + 1, ntx.tx_hash, addr, ntx.amount, ntx.block_timestamp, ntx.asset))
+
+                                # Process outgoing token transfers
+                                for tt in ntx.token_transfers:
+                                    if tt.from_address.lower() == addr.lower() and tt.to_address:
+                                        if tt.to_address not in visited_addrs:
+                                            queue.append((tt.to_address, hop_num + 1, ntx.tx_hash, addr, tt.value, ntx.block_timestamp, tt.token_symbol))
 
                             if direction in ("backward", "both"):
                                 if ntx.to_address.lower() == addr.lower() and ntx.from_address:
                                     if ntx.from_address not in visited_addrs:
-                                        queue.append((ntx.from_address, hop_num + 1, ntx.tx_hash, addr, ntx.amount, ntx.block_timestamp))
+                                        queue.append((ntx.from_address, hop_num + 1, ntx.tx_hash, addr, ntx.amount, ntx.block_timestamp, ntx.asset))
+
+                                for tt in ntx.token_transfers:
+                                    if tt.to_address.lower() == addr.lower() and tt.from_address:
+                                        if tt.from_address not in visited_addrs:
+                                            queue.append((tt.from_address, hop_num + 1, ntx.tx_hash, addr, tt.value, ntx.block_timestamp, tt.token_symbol))
                     except Exception as e:
                         logger.warning(f"Error fetching txs for {addr}: {e}")
 
             hop_count += 1
 
         # Phase 2: Check VASP attribution
-        _active_traces[trace_id]["message"] = "Checking entity attribution..."
-        _active_traces[trace_id]["progress"] = 80
+        _active_traces[trace_id]["message"] = "Matching VASP & Exchange attribution registries..."
+        _active_traces[trace_id]["progress"] = 85
 
         from app.attribution.known_entities import check_addresses
         vasp_results = await check_addresses(db, list(visited_addrs))
@@ -292,13 +332,13 @@ async def start_trace(
                 nodes[addr]["confidence"] = entity_info["confidence"]
 
             for hop in all_hops:
-                if hop.destination_address == addr:
+                if hop.destination_address.lower() == addr.lower():
                     hop.is_vasp_endpoint = True
                     hop.vasp_name = entity_info["name"]
 
         # Phase 3: Run AI Behavioral Assessment
-        _active_traces[trace_id]["message"] = "Running AI Behavioral & Fraud Investigation..."
-        _active_traces[trace_id]["progress"] = 90
+        _active_traces[trace_id]["message"] = "Synthesizing AI Forensic & Topological Assessment..."
+        _active_traces[trace_id]["progress"] = 92
 
         graph_data = {
             "nodes": list(nodes.values()),
@@ -361,8 +401,8 @@ async def start_trace(
         evidence = Evidence(
             case_id=case_id or None,
             evidence_type="graph",
-            title=f"Fund trace from {start_tx_hash or start_address}",
-            description=f"AI Traced {hop_count} hops across {len(visited_addrs)} addresses with fraud assessment.",
+            title=f"Multi-Asset fund trace from {start_tx_hash or start_address}",
+            description=f"AI Traced {hop_count} hops on {chain.upper()} across {len(visited_addrs)} addresses.",
             source="blockchain_trace",
             data=graph_data,
             sha256_hash=compute_sha256(graph_data),
@@ -408,7 +448,7 @@ async def _run_demo_multihop_trace(
     case_id: str = "",
 ) -> dict:
     """
-    Executes a high-fidelity, deterministic 5-hop demonstration trace
+    Executes a high-fidelity, deterministic demonstration trace
     with money mule layering, multiple victim complaint correlations,
     and a Binance VASP cashout endpoint.
     """
@@ -417,37 +457,36 @@ async def _run_demo_multihop_trace(
     # Progress simulation
     _active_traces[trace_id]["message"] = "Tracing multi-hop fund flow on blockchain..."
     _active_traces[trace_id]["progress"] = 35
-    await asyncio.sleep(0.6)
+    await asyncio.sleep(0.5)
 
     _active_traces[trace_id]["message"] = "Correlating suspect wallets with cyber crime victim complaints..."
     _active_traces[trace_id]["progress"] = 70
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(0.4)
 
     _active_traces[trace_id]["message"] = "Performing AI behavioral classification & VASP attribution..."
     _active_traces[trace_id]["progress"] = 90
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.3)
 
-    # Realistic Branching DAG Forensic Flow (Victim -> A -> (B, C) -> D -> VASP)
+    asset_symbol = "USDT" if "usdt" in (start_tx_hash + start_address).lower() else ("BTC" if chain == "bitcoin" else "ETH")
+
     hop_data = [
-        # Stage 1: Victim to Primary Suspect Collection Hub (A)
         {
             "hop_number": 1,
             "source": "0xv1ct1m001aaa2222333344445555666677778888",
             "target": "0x5u5pect_A_nexus1111222233334444555566667777",
             "amount": 10.0000,
-            "asset": "ETH",
+            "asset": asset_symbol,
             "tx_hash": "0xdemo_tx_001_victim_deposit_to_suspect_A",
             "timestamp": now - timedelta(hours=48),
             "is_vasp": False,
             "vasp_name": "",
         },
-        # Stage 2: Fan-Out / Layering Split (A -> Mule B & A -> Mule C)
         {
             "hop_number": 2,
             "source": "0x5u5pect_A_nexus1111222233334444555566667777",
             "target": "0xmule_B_branch1_2222333344445555666677778888",
             "amount": 6.0000,
-            "asset": "ETH",
+            "asset": asset_symbol,
             "tx_hash": "0xdemo_tx_002_suspect_A_split_to_mule_B",
             "timestamp": now - timedelta(hours=46),
             "is_vasp": False,
@@ -458,19 +497,18 @@ async def _run_demo_multihop_trace(
             "source": "0x5u5pect_A_nexus1111222233334444555566667777",
             "target": "0xmule_C_branch2_3333444455556666777788889999",
             "amount": 4.0000,
-            "asset": "ETH",
+            "asset": asset_symbol,
             "tx_hash": "0xdemo_tx_003_suspect_A_split_to_mule_C",
             "timestamp": now - timedelta(hours=45),
             "is_vasp": False,
             "vasp_name": "",
         },
-        # Stage 3: Fan-In / Consolidation Merge (Mule B -> D & Mule C -> D)
         {
             "hop_number": 3,
             "source": "0xmule_B_branch1_2222333344445555666677778888",
             "target": "0xconsolidation_D_4444555566667777888899990000",
             "amount": 5.9500,
-            "asset": "ETH",
+            "asset": asset_symbol,
             "tx_hash": "0xdemo_tx_004_mule_B_merge_to_consolidation_D",
             "timestamp": now - timedelta(hours=43),
             "is_vasp": False,
@@ -481,19 +519,18 @@ async def _run_demo_multihop_trace(
             "source": "0xmule_C_branch2_3333444455556666777788889999",
             "target": "0xconsolidation_D_4444555566667777888899990000",
             "amount": 3.9500,
-            "asset": "ETH",
+            "asset": asset_symbol,
             "tx_hash": "0xdemo_tx_005_mule_C_merge_to_consolidation_D",
             "timestamp": now - timedelta(hours=42),
             "is_vasp": False,
             "vasp_name": "",
         },
-        # Stage 4: Consolidation D to Regulated VASP (Binance Cashout)
         {
             "hop_number": 4,
             "source": "0xconsolidation_D_4444555566667777888899990000",
             "target": "0x28c6c06298d514db089934071355e5743bf21d60",
             "amount": 9.8800,
-            "asset": "ETH",
+            "asset": asset_symbol,
             "tx_hash": "0xdemo_tx_006_consolidation_D_cashout_to_Binance",
             "timestamp": now - timedelta(hours=40),
             "is_vasp": True,
@@ -512,7 +549,6 @@ async def _run_demo_multihop_trace(
         visited_addrs.add(item["target"])
         visited_txs.add(item["tx_hash"])
 
-        # Source node
         if item["source"] not in nodes:
             nodes[item["source"]] = {
                 "id": item["source"],
@@ -522,7 +558,6 @@ async def _run_demo_multihop_trace(
                 "hop": item["hop_number"] - 1,
             }
 
-        # Target node
         nodes[item["target"]] = {
             "id": item["target"],
             "type": "vasp" if item["is_vasp"] else "suspect" if "5u5pect" in item["target"] else "address",
@@ -534,7 +569,6 @@ async def _run_demo_multihop_trace(
             "confidence": 0.95 if item["is_vasp"] else 0.0,
         }
 
-        # Edge
         edges.append({
             "source": item["source"],
             "target": item["target"],
@@ -575,7 +609,6 @@ async def _run_demo_multihop_trace(
 
     total_value = sum(h.amount for h in all_hops)
 
-    # Run AI Investigator
     ai_assessment = await run_ai_investigation(
         db=db,
         trace_id=trace_id,

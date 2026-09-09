@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     TRACE_MAX_DURATION_SECONDS: int = 600
 
     # === CORS ===
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
+    CORS_ORIGINS: str = "https://crypto-trace-ai-mu.vercel.app,http://localhost:3000,http://localhost:3001,*"
 
     @property
     def cors_origins_list(self) -> List[str]:

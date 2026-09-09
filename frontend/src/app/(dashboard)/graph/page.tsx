@@ -47,8 +47,13 @@ function GraphContent() {
     if (c === 'bnb' || c === 'bsc') return `https://bscscan.com/${type}/${id}`;
     if (c === 'arbitrum') return `https://arbiscan.io/${type}/${id}`;
     if (c === 'base') return `https://basescan.org/${type}/${id}`;
+    if (c === 'optimism' || c === 'op') return `https://optimistic.etherscan.io/${type}/${id}`;
+    if (c === 'avalanche' || c === 'avax') return `https://snowtrace.io/${type}/${id}`;
     if (c === 'bitcoin' || c === 'btc') return `https://mempool.space/${type}/${id}`;
     if (c === 'tron' || c === 'trx') return `https://tronscan.org/#/${type}/${id}`;
+    if (c === 'solana' || c === 'sol') return `https://solscan.io/${type}/${id}`;
+    if (c === 'litecoin' || c === 'ltc') return `https://litecoinspace.org/${type}/${id}`;
+    if (c === 'dogecoin' || c === 'doge') return `https://dogechain.info/${type}/${id}`;
     return `https://etherscan.io/${type}/${id}`;
   };
 

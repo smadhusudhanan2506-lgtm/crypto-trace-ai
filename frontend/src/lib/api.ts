@@ -117,6 +117,10 @@ export const DEFAULT_VASP_ENTITIES = [
       { address: '0x56eddb7aa87536c09ccc2793473599fd21a8b17f', chain: 'ethereum', label: 'Binance Hot Wallet 4', source: 'verified' },
       { address: '0xf977814e90da44bfa03b6295a0616a897441acec', chain: 'ethereum', label: 'Binance Cold Storage', source: 'verified' },
       { address: '0x8894e0a0c962cb723c1976a4421c95949be2d4e3', chain: 'bnb', label: 'Binance Hot Wallet BSC', source: 'verified' },
+      { address: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo', chain: 'bitcoin', label: 'Binance Cold Storage (BTC)', source: 'verified' },
+      { address: 'bc1qm34lsc65zpw79lxes69zkqmk6ee3ewf0j77s3h', chain: 'bitcoin', label: 'Binance Hot Wallet (BTC)', source: 'verified' },
+      { address: 'TPYSmva97u7gs3X658tN8dK642xZpTfh9t', chain: 'tron', label: 'Binance Hot Wallet (TRC-20)', source: 'verified' },
+      { address: '5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mB726oWokFmcKK', chain: 'solana', label: 'Binance SOL Hot Wallet', source: 'verified' },
     ],
   },
   {
@@ -183,6 +187,17 @@ export const DEFAULT_VASP_ENTITIES = [
       { address: '0x503828976d22510aad0201ac7ec88293211d23da', chain: 'ethereum', label: 'Coinbase 2', source: 'verified' },
       { address: '0xddfabcdc4d8ffc6d5beaf154f18b778f892a0740', chain: 'ethereum', label: 'Coinbase 3', source: 'verified' },
       { address: '0x3cd751e6b0078be393132286c442345e5dc49699', chain: 'ethereum', label: 'Coinbase 4', source: 'verified' },
+      { address: 'bc1q7cyrfmck2ffu2ud3rn5l5a8yv6f0chkp0zpemf', chain: 'bitcoin', label: 'Coinbase Hot Wallet (BTC)', source: 'verified' },
+      { address: '2AQdpHJ2JpcEgPiATUXjQxA8QmafFegfQwSLWSprPicm', chain: 'solana', label: 'Coinbase SOL Hot Wallet', source: 'verified' },
+    ],
+  },
+  {
+    name: 'Bitfinex',
+    entity_type: 'exchange',
+    confidence: 0.99,
+    source: 'Verified LEA Directory',
+    addresses: [
+      { address: 'bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97', chain: 'bitcoin', label: 'Bitfinex Cold Storage (BTC)', source: 'verified' },
     ],
   },
   {
@@ -194,6 +209,7 @@ export const DEFAULT_VASP_ENTITIES = [
       { address: '0x2910543af39aba0cd09dbb2d50200b3e800a63d2', chain: 'ethereum', label: 'Kraken Hot Wallet 1', source: 'verified' },
       { address: '0x267be1c1d684f78cb4f6a176c4911b741e4ffdc0', chain: 'ethereum', label: 'Kraken 4', source: 'verified' },
       { address: '0x0a869d79a7052c7f1b55a8ebabbea3420f0d1e13', chain: 'ethereum', label: 'Kraken 2', source: 'verified' },
+      { address: 'bc1qa5wkgaew2dkv56kfvj49j0av5nml45x9ek9hz6', chain: 'bitcoin', label: 'Kraken Hot Wallet (BTC)', source: 'verified' },
     ],
   },
   {
@@ -262,13 +278,47 @@ export const DEFAULT_VASP_ENTITIES = [
 // Helper: Check if an address belongs to a known VASP
 export function checkKnownVasp(address: string): { isVasp: boolean; name: string; entityType: string; confidence: number } {
   if (!address) return { isVasp: false, name: '', entityType: '', confidence: 0 };
-  const lower = address.toLowerCase();
+  const raw = address.trim();
+  const lower = raw.toLowerCase();
   for (const ent of DEFAULT_VASP_ENTITIES) {
-    if (ent.addresses.some(a => a.address.toLowerCase() === lower)) {
+    if (ent.addresses.some(a => a.address === raw || a.address.toLowerCase() === lower)) {
       return { isVasp: true, name: ent.name, entityType: ent.entity_type, confidence: ent.confidence };
     }
   }
   return { isVasp: false, name: '', entityType: '', confidence: 0 };
+}
+
+// Helper: Auto-detect chain from address or transaction hash
+export function detectChain(input: string, preferredChain?: string): string {
+  const pref = (preferredChain || '').trim().toLowerCase();
+  if (pref && pref !== 'auto' && pref !== '') return pref;
+
+  const clean = (input || '').trim();
+  if (clean.startsWith('bc1') || clean.startsWith('1') || clean.startsWith('3')) {
+    return 'bitcoin';
+  }
+  if (clean.startsWith('T') && clean.length === 34) {
+    return 'tron';
+  }
+  if (clean.length >= 43 && clean.length <= 44 && !clean.startsWith('0x')) {
+    return 'solana';
+  }
+  if (clean.startsWith('ltc1') || clean.startsWith('L') || clean.startsWith('M')) {
+    return 'litecoin';
+  }
+  if (clean.startsWith('D') && clean.length === 34) {
+    return 'dogecoin';
+  }
+  if (!clean.startsWith('0x') && clean.length === 64) {
+    return 'bitcoin';
+  }
+  if (clean.startsWith('0x') && clean.length === 66) {
+    return 'ethereum';
+  }
+  if (clean.startsWith('0x') && clean.length === 42) {
+    return 'ethereum';
+  }
+  return 'ethereum';
 }
 
 // ─── LocalStorage Persistence for Traces, Cases, and Victims ───────────────
@@ -705,30 +755,36 @@ async function fetchMultiChainTx(txHash: string, preferredChain?: string): Promi
 
   // 3. Bitcoin Network Probe (Blockstream & Mempool API)
   if (!cleanTx.startsWith('0x') && cleanTx.length === 64) {
-    try {
-      const btcRes = await fetch(`https://blockstream.info/api/tx/${cleanTx}`);
-      if (btcRes.ok) {
-        const btcData = await btcRes.json();
-        const from = btcData.vin?.[0]?.prevout?.scriptpubkey_address || 'bitcoin_source';
-        const to = btcData.vout?.[0]?.scriptpubkey_address || 'bitcoin_recipient';
-        const totalSat = btcData.vout?.reduce((acc: number, v: { value?: number }) => acc + (v.value || 0), 0) || 0;
-        return {
-          hash: cleanTx,
-          chain: 'bitcoin',
-          from: from.toLowerCase(),
-          to: to.toLowerCase(),
-          value: totalSat / 1e8,
-          asset: 'BTC',
-          blockNumber: btcData.status?.block_height || null,
-          blockTimestamp: btcData.status?.block_time ? new Date(btcData.status.block_time * 1000).toISOString() : new Date().toISOString(),
-          status: btcData.status?.confirmed ? 'confirmed' : 'confirmed',
-          gasUsed: btcData.fee || 0,
-          gasPriceGwei: 0,
-          isContract: false,
-          tokenTransfers: [],
-        };
-      }
-    } catch {}
+    const btcEndpoints = [
+      `https://blockstream.info/api/tx/${cleanTx}`,
+      `https://mempool.space/api/tx/${cleanTx}`,
+    ];
+    for (const ep of btcEndpoints) {
+      try {
+        const btcRes = await fetch(ep, { signal: AbortSignal.timeout(6000) });
+        if (btcRes.ok) {
+          const btcData = await btcRes.json();
+          const from = btcData.vin?.[0]?.prevout?.scriptpubkey_address || 'bitcoin_source';
+          const to = btcData.vout?.[0]?.scriptpubkey_address || 'bitcoin_recipient';
+          const totalSat = btcData.vout?.reduce((acc: number, v: { value?: number }) => acc + (v.value || 0), 0) || 0;
+          return {
+            hash: cleanTx,
+            chain: 'bitcoin',
+            from: from,
+            to: to,
+            value: totalSat / 1e8,
+            asset: 'BTC',
+            blockNumber: btcData.status?.block_height || null,
+            blockTimestamp: btcData.status?.block_time ? new Date(btcData.status.block_time * 1000).toISOString() : new Date().toISOString(),
+            status: btcData.status?.confirmed ? 'confirmed' : 'confirmed',
+            gasUsed: btcData.fee || 0,
+            gasPriceGwei: 0,
+            isContract: false,
+            tokenTransfers: [],
+          };
+        }
+      } catch {}
+    }
   }
 
   return null;
@@ -736,39 +792,100 @@ async function fetchMultiChainTx(txHash: string, preferredChain?: string): Promi
 
 // Fetch real transactions for a wallet address from Alchemy Transfers + Etherscan V2 + Tronscan + Blockstream
 async function fetchAddressTransactions(address: string, chain: string): Promise<any[]> {
-  const chainLower = (chain || 'sepolia').toLowerCase();
-  const cleanAddr = address.toLowerCase();
+  const isEvm = address.startsWith('0x');
+  const cleanAddr = isEvm ? address.toLowerCase() : address.trim();
+  const chainDetected = detectChain(cleanAddr, chain);
 
-  // 1. Bitcoin Address Query
-  if (chainLower === 'bitcoin' || chainLower === 'btc' || cleanAddr.startsWith('bc1') || cleanAddr.startsWith('1') || cleanAddr.startsWith('3')) {
-    try {
-      const btcRes = await fetch(`https://blockstream.info/api/address/${cleanAddr}/txs`);
-      if (btcRes.ok) {
-        const btcTxs = await btcRes.json();
-        if (Array.isArray(btcTxs)) {
-          return btcTxs.map((t: any) => {
-            const sender = t.vin?.[0]?.prevout?.scriptpubkey_address || 'bitcoin_source';
-            const recipient = t.vout?.[0]?.scriptpubkey_address || 'bitcoin_destination';
-            const sat = t.vout?.reduce((acc: number, v: any) => acc + (v.value || 0), 0) || 0;
-            return {
-              hash: t.txid,
-              from: sender.toLowerCase(),
-              to: recipient.toLowerCase(),
-              value: sat / 1e8,
-              asset: 'BTC',
-              timeStamp: t.status?.block_time ? String(t.status.block_time) : String(Math.floor(Date.now() / 1000)),
-              isContract: false,
-            };
-          });
+  // 1. Bitcoin Address Query (Preserves exact Base58 case)
+  if (chainDetected === 'bitcoin' || cleanAddr.startsWith('bc1') || cleanAddr.startsWith('1') || cleanAddr.startsWith('3')) {
+    const btcEndpoints = [
+      `https://blockstream.info/api/address/${cleanAddr}/txs`,
+      `https://mempool.space/api/address/${cleanAddr}/txs`,
+    ];
+    for (const ep of btcEndpoints) {
+      try {
+        const btcRes = await fetch(ep, { signal: AbortSignal.timeout(6000) });
+        if (btcRes.ok) {
+          const btcTxs = await btcRes.json();
+          if (Array.isArray(btcTxs) && btcTxs.length > 0) {
+            const parsedList: any[] = [];
+            for (const t of btcTxs) {
+              const txid = t.txid || '';
+              const timeStamp = t.status?.block_time ? String(t.status.block_time) : String(Math.floor(Date.now() / 1000));
+              
+              const isInflow = t.vout?.some((v: any) => v.scriptpubkey_address === cleanAddr);
+              const isOutflow = t.vin?.some((v: any) => v.prevout?.scriptpubkey_address === cleanAddr);
+
+              if (isInflow) {
+                const sender = t.vin?.[0]?.prevout?.scriptpubkey_address || 'External BTC Sender';
+                const satIn = t.vout?.filter((v: any) => v.scriptpubkey_address === cleanAddr).reduce((acc: number, v: any) => acc + (v.value || 0), 0) || 0;
+                parsedList.push({
+                  hash: txid,
+                  from: sender,
+                  to: cleanAddr,
+                  value: satIn / 1e8,
+                  asset: 'BTC',
+                  timeStamp,
+                  isContract: false,
+                });
+              }
+
+              if (isOutflow) {
+                const recipients = t.vout?.filter((v: any) => v.scriptpubkey_address && v.scriptpubkey_address !== cleanAddr) || [];
+                if (recipients.length > 0) {
+                  for (const r of recipients.slice(0, 4)) {
+                    parsedList.push({
+                      hash: txid,
+                      from: cleanAddr,
+                      to: r.scriptpubkey_address,
+                      value: (r.value || 0) / 1e8,
+                      asset: 'BTC',
+                      timeStamp,
+                      isContract: false,
+                    });
+                  }
+                } else if (t.vout && t.vout.length > 0) {
+                  parsedList.push({
+                    hash: txid,
+                    from: cleanAddr,
+                    to: t.vout[0].scriptpubkey_address || 'BTC Change Address',
+                    value: (t.vout[0].value || 0) / 1e8,
+                    asset: 'BTC',
+                    timeStamp,
+                    isContract: false,
+                  });
+                }
+              }
+
+              // Fallback if neither directly matched (general tx)
+              if (!isInflow && !isOutflow) {
+                const sender = t.vin?.[0]?.prevout?.scriptpubkey_address || 'bitcoin_source';
+                const recipient = t.vout?.[0]?.scriptpubkey_address || 'bitcoin_destination';
+                const sat = t.vout?.reduce((acc: number, v: any) => acc + (v.value || 0), 0) || 0;
+                parsedList.push({
+                  hash: txid,
+                  from: sender,
+                  to: recipient,
+                  value: sat / 1e8,
+                  asset: 'BTC',
+                  timeStamp,
+                  isContract: false,
+                });
+              }
+            }
+            if (parsedList.length > 0) {
+              return parsedList;
+            }
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
   }
 
   // 2. Tron Address Query
-  if (cleanAddr.startsWith('t') || chainLower === 'tron') {
+  if (chainDetected === 'tron' || cleanAddr.startsWith('T')) {
     try {
-      const tronRes = await fetch(`https://apilist.tronscanapi.com/api/transaction?sort=-timestamp&count=true&limit=20&address=${cleanAddr}`);
+      const tronRes = await fetch(`https://apilist.tronscanapi.com/api/transaction?sort=-timestamp&count=true&limit=20&address=${cleanAddr}`, { signal: AbortSignal.timeout(6000) });
       if (tronRes.ok) {
         const tJson = await tronRes.json();
         if (tJson.data && Array.isArray(tJson.data)) {
@@ -785,8 +902,8 @@ async function fetchAddressTransactions(address: string, chain: string): Promise
             }
             return {
               hash: t.hash,
-              from: (t.ownerAddress || '').toLowerCase(),
-              to: (t.toAddress || '').toLowerCase(),
+              from: t.ownerAddress || '',
+              to: t.toAddress || '',
               value: val,
               asset,
               timeStamp: t.timestamp ? String(Math.floor(t.timestamp / 1000)) : String(Math.floor(Date.now() / 1000)),
@@ -799,6 +916,7 @@ async function fetchAddressTransactions(address: string, chain: string): Promise
   }
 
   // 3. Alchemy Asset Transfers (Direct indexed on-chain transfer log for EVM)
+  const chainLower = chainDetected;
   const [alchemyOut, alchemyIn] = await Promise.all([
     fetchAlchemyAssetTransfers(cleanAddr, chainLower, 'from'),
     fetchAlchemyAssetTransfers(cleanAddr, chainLower, 'to'),
@@ -857,10 +975,71 @@ async function fetchAddressTransactions(address: string, chain: string): Promise
 
 // Fetch address balance and contract status
 async function fetchAddressState(address: string, chain: string): Promise<{ balance: number; isContract: boolean; txCount: number }> {
+  const cleanAddr = address.trim();
+  const c = detectChain(cleanAddr, chain);
+
+  // 1. Bitcoin Balance (Blockstream & Mempool)
+  if (c === 'bitcoin' || cleanAddr.startsWith('1') || cleanAddr.startsWith('3') || cleanAddr.startsWith('bc1')) {
+    const endpoints = [
+      `https://blockstream.info/api/address/${cleanAddr}`,
+      `https://mempool.space/api/address/${cleanAddr}`
+    ];
+    for (const ep of endpoints) {
+      try {
+        const res = await fetch(ep, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          const data = await res.json();
+          const funded = data.chain_stats?.funded_txo_sum || 0;
+          const spent = data.chain_stats?.spent_txo_sum || 0;
+          let bal = (funded - spent) / 1e8;
+          // Genesis block special reward offset
+          if (cleanAddr === '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa') {
+            bal += 50.0;
+          }
+          const count = (data.chain_stats?.tx_count || 0) + (data.mempool_stats?.tx_count || 0);
+          return { balance: Math.max(0, bal), isContract: false, txCount: count };
+        }
+      } catch {}
+    }
+    return { balance: 0, isContract: false, txCount: 0 };
+  }
+
+  // 2. Tron Balance
+  if (c === 'tron' || cleanAddr.startsWith('T')) {
+    try {
+      const res = await fetch(`https://apilist.tronscanapi.com/api/account?address=${cleanAddr}`, { signal: AbortSignal.timeout(5000) });
+      if (res.ok) {
+        const data = await res.json();
+        const bal = (data.balance || 0) / 1e6;
+        return { balance: bal, isContract: Boolean(data.token), txCount: data.totalTransactionCount || 0 };
+      }
+    } catch {}
+    return { balance: 0, isContract: false, txCount: 0 };
+  }
+
+  // 3. Solana Balance
+  if (c === 'solana' || (cleanAddr.length >= 43 && cleanAddr.length <= 44 && !cleanAddr.startsWith('0x'))) {
+    try {
+      const res = await fetch('https://api.mainnet-beta.solana.com', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getBalance', params: [cleanAddr] }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        const lamports = d.result?.value || 0;
+        return { balance: lamports / 1e9, isContract: false, txCount: 1 };
+      }
+    } catch {}
+    return { balance: 0, isContract: false, txCount: 0 };
+  }
+
+  // 4. EVM JSON-RPC Balance
   try {
-    const balHex = await rpcPost(chain, 'eth_getBalance', [address, 'latest']);
-    const codeHex = await rpcPost(chain, 'eth_getCode', [address, 'latest']);
-    const countHex = await rpcPost(chain, 'eth_getTransactionCount', [address, 'latest']);
+    const balHex = await rpcPost(c, 'eth_getBalance', [cleanAddr.toLowerCase(), 'latest']);
+    const codeHex = await rpcPost(c, 'eth_getCode', [cleanAddr.toLowerCase(), 'latest']);
+    const countHex = await rpcPost(c, 'eth_getTransactionCount', [cleanAddr.toLowerCase(), 'latest']);
     
     return {
       balance: balHex ? parseInt(balHex, 16) / 1e18 : 0,
@@ -873,32 +1052,37 @@ async function fetchAddressState(address: string, chain: string): Promise<{ bala
 }
 
 // ─── Live Dynamic Multi-Hop On-Chain Trace Builder ───────────────────────────
-async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'sepolia'): Promise<TraceDetail> {
+async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = ''): Promise<TraceDetail> {
   const randomSuffix = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   const traceId = `trace-${randomSuffix}`;
   const trimmed = txOrAddr.trim();
   const isTx = (trimmed.startsWith('0x') && trimmed.length === 66) || (!trimmed.startsWith('0x') && trimmed.length === 64);
-  const isAddr = (trimmed.startsWith('0x') && trimmed.length === 42) || trimmed.startsWith('bc1') || trimmed.startsWith('1') || trimmed.startsWith('3') || trimmed.startsWith('T') || trimmed.startsWith('t');
 
-  let chain = chainParam.toLowerCase() || (trimmed.startsWith('0x') ? 'sepolia' : 'bitcoin');
+  let chain = detectChain(trimmed, chainParam);
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
   const visitedNodes = new Set<string>();
   const visitedTxs = new Set<string>();
 
   let primaryTxHash = isTx ? trimmed : '';
-  let startAddress = !isTx ? trimmed : '';
+  const isEvm = trimmed.startsWith('0x');
+  let startAddress = !isTx ? (isEvm ? trimmed.toLowerCase() : trimmed) : '';
   let totalTracedValue = 0;
   let detectedVaspName = '';
   let vaspDetected = false;
-  let nativeAsset = chain === 'polygon' ? 'MATIC' : chain === 'bnb' || chain === 'bsc' ? 'BNB' : chain === 'bitcoin' ? 'BTC' : chain === 'tron' ? 'TRX' : 'ETH';
+  let nativeAsset = chain === 'polygon' ? 'MATIC' : chain === 'bnb' || chain === 'bsc' ? 'BNB' : chain === 'bitcoin' ? 'BTC' : chain === 'tron' ? 'TRX' : chain === 'solana' ? 'SOL' : chain === 'litecoin' ? 'LTC' : chain === 'dogecoin' ? 'DOGE' : 'ETH';
+
+  const addrEquals = (a: string, b: string) => {
+    if (!a || !b) return false;
+    return a.startsWith('0x') ? a.toLowerCase() === b.toLowerCase() : a === b;
+  };
 
   if (isTx) {
     // ─── CASE A: USER PROVIDED A REAL TRANSACTION HASH ─────────────────────
     const primaryTx = await fetchMultiChainTx(trimmed, chain);
     
     if (!primaryTx) {
-      throw new Error(`Transaction hash "${trimmed}" was not found on Ethereum, Sepolia, Polygon, BSC, Arbitrum, Base, Bitcoin, or Tron. Please check that the hash is valid and confirmed on-chain.`);
+      throw new Error(`Transaction hash "${trimmed}" was not found on Bitcoin, Ethereum, Sepolia, Polygon, BSC, Arbitrum, Base, Tron, or Solana. Please check that the hash is valid and confirmed on-chain.`);
     }
 
     chain = primaryTx.chain;
@@ -908,8 +1092,8 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
     totalTracedValue = primaryTx.value;
     visitedTxs.add(primaryTx.hash.toLowerCase());
 
-    const victimAddr = primaryTx.from.toLowerCase();
-    const suspectAddr = primaryTx.to.toLowerCase();
+    const victimAddr = primaryTx.from;
+    const suspectAddr = primaryTx.to;
     const vaspCheckHop1 = checkKnownVasp(suspectAddr);
 
     // Node 0: Victim / Source
@@ -917,7 +1101,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
       id: victimAddr,
       type: 'victim',
       chain,
-      label: `VICTIM / SENDER (HOP 0)\n${victimAddr.substring(0, 6)}...${victimAddr.substring(38)}`,
+      label: `VICTIM / SENDER (HOP 0)\n${victimAddr.length > 16 ? victimAddr.substring(0, 6) + '...' + victimAddr.substring(victimAddr.length - 4) : victimAddr}`,
       entity: 'Victim / Source Wallet',
       hop: 0,
       confidence: 1.0,
@@ -931,8 +1115,8 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
       type: isSuspectVasp ? 'vasp' : 'suspect',
       chain,
       label: isSuspectVasp 
-        ? `${vaspCheckHop1.name.toUpperCase()} (VASP)\n${suspectAddr.substring(0, 6)}...${suspectAddr.substring(38)}`
-        : `PRIMARY SUSPECT (HOP 1)\n${suspectAddr.substring(0, 6)}...${suspectAddr.substring(38)}`,
+        ? `${vaspCheckHop1.name.toUpperCase()} (VASP)\n${suspectAddr.length > 16 ? suspectAddr.substring(0, 6) + '...' + suspectAddr.substring(suspectAddr.length - 4) : suspectAddr}`
+        : `PRIMARY SUSPECT (HOP 1)\n${suspectAddr.length > 16 ? suspectAddr.substring(0, 6) + '...' + suspectAddr.substring(suspectAddr.length - 4) : suspectAddr}`,
       entity: isSuspectVasp ? vaspCheckHop1.name : 'Primary Suspect / Beneficiary',
       entity_type: isSuspectVasp ? (vaspCheckHop1.entityType as any) : undefined,
       hop: 1,
@@ -966,12 +1150,12 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
 
         // Fetch subsequent transactions for current hop address
         const subTxs = await fetchAddressTransactions(current.address, chain);
-        const outboundTxs = subTxs.filter(t => (t.from || '').toLowerCase() === current.address && !visitedTxs.has((t.hash || '').toLowerCase()) && (t.to || '').toLowerCase() !== current.address);
+        const outboundTxs = subTxs.filter(t => addrEquals(t.from, current.address) && !visitedTxs.has((t.hash || '').toLowerCase()) && !addrEquals(t.to, current.address));
 
         if (outboundTxs.length > 0) {
           for (const outTx of outboundTxs.slice(0, 3)) {
-            const recipient = (outTx.to || '').toLowerCase();
-            if (!recipient || recipient === current.address) continue;
+            const recipient = outTx.to;
+            if (!recipient || addrEquals(recipient, current.address)) continue;
             visitedTxs.add((outTx.hash || '').toLowerCase());
 
             const nextHop = current.hop + 1;
@@ -991,8 +1175,8 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
                 type: isNextVasp ? 'vasp' : (nextHop >= 4 ? 'consolidation' : 'mule'),
                 chain,
                 label: isNextVasp
-                  ? `${nextVaspCheck.name.toUpperCase()} (EXCHANGE EXIT)\n${recipient.substring(0, 6)}...${recipient.substring(38)}`
-                  : (nextHop >= 4 ? `CONSOLIDATION HUB (HOP ${nextHop})\n${recipient.substring(0, 6)}...${recipient.substring(38)}` : `INTERMEDIARY MULE (HOP ${nextHop})\n${recipient.substring(0, 6)}...${recipient.substring(38)}`),
+                  ? `${nextVaspCheck.name.toUpperCase()} (EXCHANGE EXIT)\n${recipient.length > 16 ? recipient.substring(0, 6) + '...' + recipient.substring(recipient.length - 4) : recipient}`
+                  : (nextHop >= 4 ? `CONSOLIDATION HUB (HOP ${nextHop})\n${recipient.length > 16 ? recipient.substring(0, 6) + '...' + recipient.substring(recipient.length - 4) : recipient}` : `INTERMEDIARY MULE (HOP ${nextHop})\n${recipient.length > 16 ? recipient.substring(0, 6) + '...' + recipient.substring(recipient.length - 4) : recipient}`),
                 entity: isNextVasp ? nextVaspCheck.name : `Layering Intermediary Hop ${nextHop}`,
                 entity_type: isNextVasp ? (nextVaspCheck.entityType as any) : undefined,
                 hop: nextHop,
@@ -1028,7 +1212,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
     }
   } else {
     // ─── CASE B: USER PROVIDED A WALLET ADDRESS ─────────────────────────────
-    startAddress = trimmed.toLowerCase();
+    startAddress = isEvm ? trimmed.toLowerCase() : trimmed;
     
     // Auto-probe multi-chain in parallel for EVM addresses if chain is default or needs verification
     let txList = await fetchAddressTransactions(startAddress, chain);
@@ -1059,7 +1243,7 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
       }
     }
 
-    primaryTxHash = txList.length > 0 ? txList[0].hash : `0x_addr_trace_${startAddress.substring(0, 10)}`;
+    primaryTxHash = txList.length > 0 ? txList[0].hash : `${chain}_addr_trace_${startAddress.substring(0, 10)}`;
     const vaspCheck = checkKnownVasp(startAddress);
     const isVasp = vaspCheck.isVasp;
     if (isVasp) {
@@ -1067,14 +1251,16 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
       detectedVaspName = vaspCheck.name;
     }
 
+    const shortStart = startAddress.length > 16 ? `${startAddress.substring(0, 6)}...${startAddress.substring(startAddress.length - 4)}` : startAddress;
+
     // Center Node: Target Wallet (Hop 1)
     nodes.push({
       id: startAddress,
       type: isVasp ? 'vasp' : 'suspect',
       chain,
       label: isVasp
-        ? `${vaspCheck.name.toUpperCase()} (TARGET VASP)\n${startAddress.substring(0, 6)}...${startAddress.substring(38)}`
-        : `TARGET WALLET (INVESTIGATION SUBJECT)\n${startAddress.substring(0, 6)}...${startAddress.substring(38)}\n[Bal: ${state.balance.toFixed(4)} ${nativeAsset}]`,
+        ? `${vaspCheck.name.toUpperCase()} (TARGET VASP)\n${shortStart}`
+        : `TARGET WALLET (INVESTIGATION SUBJECT)\n${shortStart}\n[Bal: ${state.balance.toFixed(4)} ${nativeAsset}]`,
       entity: isVasp ? vaspCheck.name : 'Target Investigation Subject',
       entity_type: isVasp ? (vaspCheck.entityType as any) : undefined,
       hop: 1,
@@ -1084,10 +1270,10 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
 
     if (txList.length > 0) {
       // Inflow transactions (senders -> target) Hop 0
-      const inflows = txList.filter(t => (t.to || '').toLowerCase() === startAddress && (t.from || '').toLowerCase() !== startAddress).slice(0, 3);
+      const inflows = txList.filter(t => addrEquals(t.to, startAddress) && !addrEquals(t.from, startAddress)).slice(0, 4);
       for (let i = 0; i < inflows.length; i++) {
         const inTx = inflows[i];
-        const sender = (inTx.from || '').toLowerCase();
+        const sender = inTx.from;
         if (!sender || visitedNodes.has(sender)) continue;
 
         const inVal = inTx.value;
@@ -1095,13 +1281,14 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
         visitedTxs.add((inTx.hash || '').toLowerCase());
 
         const inVasp = checkKnownVasp(sender);
+        const shortSender = sender.length > 16 ? `${sender.substring(0, 6)}...${sender.substring(sender.length - 4)}` : sender;
         nodes.push({
           id: sender,
           type: inVasp.isVasp ? 'vasp' : 'victim',
           chain,
           label: inVasp.isVasp
-            ? `${inVasp.name.toUpperCase()} (DEPOSIT SOURCE)\n${sender.substring(0, 6)}...${sender.substring(38)}`
-            : `INFLOW SOURCE ${i + 1}\n${sender.substring(0, 6)}...${sender.substring(38)}`,
+            ? `${inVasp.name.toUpperCase()} (DEPOSIT SOURCE)\n${shortSender}`
+            : `INFLOW SOURCE ${i + 1}\n${shortSender}`,
           entity: inVasp.isVasp ? inVasp.name : `Inflow Origin ${i + 1}`,
           entity_type: inVasp.isVasp ? (inVasp.entityType as any) : undefined,
           hop: 0,
@@ -1120,12 +1307,12 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
       }
 
       // Outflow transactions (target -> beneficiaries / exchanges) Hop 2+
-      const outflows = txList.filter(t => (t.from || '').toLowerCase() === startAddress && (t.to || '').toLowerCase() !== startAddress).slice(0, 4);
+      const outflows = txList.filter(t => addrEquals(t.from, startAddress) && !addrEquals(t.to, startAddress)).slice(0, 4);
       const addrBfsQueue: Array<{ address: string; hop: number }> = [];
 
       for (let i = 0; i < outflows.length; i++) {
         const outTx = outflows[i];
-        const recipient = (outTx.to || '').toLowerCase();
+        const recipient = outTx.to;
         if (!recipient || visitedNodes.has(recipient)) continue;
         visitedTxs.add((outTx.hash || '').toLowerCase());
 
@@ -1138,13 +1325,14 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
           detectedVaspName = outVasp.name;
         }
 
+        const shortRecipient = recipient.length > 16 ? `${recipient.substring(0, 6)}...${recipient.substring(recipient.length - 4)}` : recipient;
         nodes.push({
           id: recipient,
           type: outVasp.isVasp ? 'vasp' : 'mule',
           chain,
           label: outVasp.isVasp
-            ? `${outVasp.name.toUpperCase()} (EXCHANGE EXIT)\n${recipient.substring(0, 6)}...${recipient.substring(38)}`
-            : `OUTFLOW RECIPIENT ${i + 1}\n${recipient.substring(0, 6)}...${recipient.substring(38)}`,
+            ? `${outVasp.name.toUpperCase()} (EXCHANGE EXIT)\n${shortRecipient}`
+            : `OUTFLOW RECIPIENT ${i + 1}\n${shortRecipient}`,
           entity: outVasp.isVasp ? outVasp.name : `Beneficiary ${i + 1}`,
           entity_type: outVasp.isVasp ? (outVasp.entityType as any) : undefined,
           hop: 2,
@@ -1172,10 +1360,10 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
         if (curr.hop >= 4) continue;
 
         const nextTxs = await fetchAddressTransactions(curr.address, chain);
-        const nextOutflows = nextTxs.filter(t => (t.from || '').toLowerCase() === curr.address && !visitedTxs.has((t.hash || '').toLowerCase()) && (t.to || '').toLowerCase() !== curr.address);
+        const nextOutflows = nextTxs.filter(t => addrEquals(t.from, curr.address) && !visitedTxs.has((t.hash || '').toLowerCase()) && !addrEquals(t.to, curr.address));
 
         for (const nTx of nextOutflows.slice(0, 2)) {
-          const nextRecipient = (nTx.to || '').toLowerCase();
+          const nextRecipient = nTx.to;
           if (!nextRecipient || visitedNodes.has(nextRecipient)) continue;
           visitedTxs.add((nTx.hash || '').toLowerCase());
 
@@ -1189,13 +1377,14 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
             detectedVaspName = nextVasp.name;
           }
 
+          const shortNext = nextRecipient.length > 16 ? `${nextRecipient.substring(0, 6)}...${nextRecipient.substring(nextRecipient.length - 4)}` : nextRecipient;
           nodes.push({
             id: nextRecipient,
             type: nextVasp.isVasp ? 'vasp' : (nextHop >= 4 ? 'consolidation' : 'mule'),
             chain,
             label: nextVasp.isVasp
-              ? `${nextVasp.name.toUpperCase()} (EXCHANGE EXIT)\n${nextRecipient.substring(0, 6)}...${nextRecipient.substring(38)}`
-              : (nextHop >= 4 ? `CONSOLIDATION HUB (HOP ${nextHop})\n${nextRecipient.substring(0, 6)}...${nextRecipient.substring(38)}` : `INTERMEDIARY MULE (HOP ${nextHop})\n${nextRecipient.substring(0, 6)}...${nextRecipient.substring(38)}`),
+              ? `${nextVasp.name.toUpperCase()} (EXCHANGE EXIT)\n${shortNext}`
+              : (nextHop >= 4 ? `CONSOLIDATION HUB (HOP ${nextHop})\n${shortNext}` : `INTERMEDIARY MULE (HOP ${nextHop})\n${shortNext}`),
             entity: nextVasp.isVasp ? nextVasp.name : `Layering Intermediary Hop ${nextHop}`,
             entity_type: nextVasp.isVasp ? (nextVasp.entityType as any) : undefined,
             hop: nextHop,
@@ -1217,8 +1406,9 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = 'se
           }
         }
       }
-    } else {
-      // Single node address with active balance
+    }
+
+    if (totalTracedValue === 0) {
       totalTracedValue = state.balance;
     }
   }
@@ -2209,13 +2399,15 @@ export const tracingAPI = {
       }
     } catch {}
 
-    const trace = await createLiveOnChainTrace(data.tx_hash || data.address || '', data.chain || 'sepolia');
+    const rawInput = data.tx_hash || data.address || '';
+    const chainDetected = detectChain(rawInput, data.chain);
+    const trace = await createLiveOnChainTrace(rawInput, chainDetected);
     persistTrace(trace);
     return {
       data: {
         trace_id: trace.id,
         status: 'completed',
-        message: 'Real on-chain blockchain trace completed successfully.',
+        message: `Real on-chain ${chainDetected.toUpperCase()} blockchain trace completed successfully.`,
       },
     };
   },
@@ -2327,6 +2519,15 @@ export const blockchainAPI = {
     }
     if (clean.startsWith('T') && clean.length === 34) {
       return { data: { chain: 'tron', type: 'address', confidence: 0.99 } };
+    }
+    if (clean.length >= 43 && clean.length <= 44 && !clean.startsWith('0x')) {
+      return { data: { chain: 'solana', type: 'address', confidence: 0.99 } };
+    }
+    if (clean.startsWith('ltc1') || clean.startsWith('L') || clean.startsWith('M')) {
+      return { data: { chain: 'litecoin', type: 'address', confidence: 0.99 } };
+    }
+    if (clean.startsWith('D') && clean.length === 34) {
+      return { data: { chain: 'dogecoin', type: 'address', confidence: 0.99 } };
     }
     
     // Check if it's a 66-char EVM tx or 42-char EVM address

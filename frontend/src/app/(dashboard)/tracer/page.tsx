@@ -19,8 +19,13 @@ function getExplorerUrl(id: string, type: 'address' | 'tx', chain: string = 'eth
   if (c === 'bnb' || c === 'bsc') return `https://bscscan.com/${type}/${id}`;
   if (c === 'arbitrum') return `https://arbiscan.io/${type}/${id}`;
   if (c === 'base') return `https://basescan.org/${type}/${id}`;
+  if (c === 'optimism' || c === 'op') return `https://optimistic.etherscan.io/${type}/${id}`;
+  if (c === 'avalanche' || c === 'avax') return `https://snowtrace.io/${type}/${id}`;
   if (c === 'bitcoin' || c === 'btc') return `https://mempool.space/${type}/${id}`;
   if (c === 'tron' || c === 'trx') return `https://tronscan.org/#/${type}/${id}`;
+  if (c === 'solana' || c === 'sol') return `https://solscan.io/${type}/${id}`;
+  if (c === 'litecoin' || c === 'ltc') return `https://litecoinspace.org/${type}/${id}`;
+  if (c === 'dogecoin' || c === 'doge') return `https://dogechain.info/${type}/${id}`;
   return `https://etherscan.io/${type}/${id}`;
 }
 
@@ -122,13 +127,26 @@ export default function TracerPage() {
       
       let detectedChain = chain;
       if (!detectedChain) {
-        try {
-          const idRes = await blockchainAPI.identify(trimmed);
-          if (idRes.data.chain) {
-            detectedChain = idRes.data.chain;
-            setChain(detectedChain);
-          }
-        } catch {}
+        if (trimmed.startsWith('1') || trimmed.startsWith('3') || trimmed.startsWith('bc1')) {
+          detectedChain = 'bitcoin';
+        } else if (trimmed.startsWith('T') && trimmed.length === 34) {
+          detectedChain = 'tron';
+        } else if (trimmed.length >= 43 && trimmed.length <= 44 && !trimmed.startsWith('0x')) {
+          detectedChain = 'solana';
+        } else if (trimmed.startsWith('0x')) {
+          detectedChain = trimmed.length === 66 ? 'ethereum' : 'sepolia';
+        }
+        if (detectedChain) {
+          setChain(detectedChain);
+        } else {
+          try {
+            const idRes = await blockchainAPI.identify(trimmed);
+            if (idRes.data.chain) {
+              detectedChain = idRes.data.chain;
+              setChain(detectedChain);
+            }
+          } catch {}
+        }
       }
 
       await delay(450);
@@ -247,40 +265,29 @@ export default function TracerPage() {
               }}
               className="px-3 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-950/70 border border-[#00ff66]/50 text-[#00ff66] text-xs font-mono font-bold transition-colors shadow-[0_0_10px_rgba(0,255,102,0.2)]"
             >
-              🏷️ Wallet ID: Binance Mainnet Hot Wallet (0x28c6...1d60)
+              🏷️ ETH: Binance Hot Wallet (0x28c6...1d60)
             </button>
             <button
               type="button"
               onClick={() => {
-                setInput('0xd8da6bf26964af9d7eed9e03e53415d37aa96045');
-                setChain('ethereum');
+                setInput('TPYSmva97u7gs3X658tN8dK642xZpTfh9t');
+                setChain('tron');
                 setMaxHops(5);
               }}
-              className="px-3 py-1.5 rounded-lg bg-purple-950/40 hover:bg-purple-950/70 border border-purple-500/50 text-purple-300 text-xs font-mono font-bold transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-950/70 border border-red-500/50 text-red-300 text-xs font-mono font-bold transition-colors shadow-[0_0_10px_rgba(239,68,68,0.2)]"
             >
-              🏷️ Wallet ID: Vitalik Buterin Wallet (0xd8da...6045)
+              💵 TRON / USDT: Binance TRC-20 (TPYS...fh9t)
             </button>
             <button
               type="button"
               onClick={() => {
-                setInput('0xe19bc4e3113382f59b61296c87cf69bef8ea584d4b94852f5bcd28c2fb8ea06d');
-                setChain('sepolia');
+                setInput('5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mB726oWokFmcKK');
+                setChain('solana');
                 setMaxHops(5);
               }}
-              className="px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-950/70 border border-red-500/50 text-red-300 text-xs font-mono font-bold transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-violet-950/40 hover:bg-violet-950/70 border border-violet-500/50 text-violet-300 text-xs font-mono font-bold transition-colors shadow-[0_0_10px_rgba(139,92,246,0.2)]"
             >
-              🔗 TXID: Live Scam Multi-Hop Trail (0xe19b...a06d)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setInput('0x3242055aaaeb91b9640a822cacf3d42770f72830f3d9f85576c56ee4af8e22ed');
-                setChain('ethereum');
-                setMaxHops(5);
-              }}
-              className="px-3 py-1.5 rounded-lg bg-cyan-950/40 hover:bg-cyan-950/70 border border-cyan-500/50 text-cyan-300 text-xs font-mono font-bold transition-colors"
-            >
-              🔗 TXID: Live Mainnet Outflow Hash (0x3242...22ed)
+              ☀️ SOLANA: Binance SOL Hot Wallet (5tzF...mcKK)
             </button>
             <button
               type="button"
@@ -289,9 +296,20 @@ export default function TracerPage() {
                 setChain('bitcoin');
                 setMaxHops(5);
               }}
-              className="px-3 py-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-950/70 border border-amber-500/50 text-amber-300 text-xs font-mono transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-950/70 border border-amber-500/50 text-amber-300 text-xs font-mono font-bold transition-colors"
             >
-              🪙 Bitcoin: Genesis Reserve (1A1z...vfNa)
+              🪙 BTC: Genesis Reserve (1A1z...vfNa)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setInput('0xe19bc4e3113382f59b61296c87cf69bef8ea584d4b94852f5bcd28c2fb8ea06d');
+                setChain('sepolia');
+                setMaxHops(5);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-cyan-950/40 hover:bg-cyan-950/70 border border-cyan-500/50 text-cyan-300 text-xs font-mono font-bold transition-colors"
+            >
+              🔗 Sepolia: Multi-Hop Trail (0xe19b...a06d)
             </button>
           </div>
         </div>
@@ -310,12 +328,17 @@ export default function TracerPage() {
                 <option value="">⚡ Auto-Detect (Multi-Chain Probe)</option>
                 <option value="ethereum">Ethereum (Mainnet)</option>
                 <option value="sepolia">Ethereum Sepolia (Testnet)</option>
-                <option value="polygon">Polygon (MATIC)</option>
+                <option value="bitcoin">Bitcoin (BTC)</option>
+                <option value="tron">Tron (TRX & USDT-TRC20)</option>
+                <option value="solana">Solana (SOL & SPL Tokens)</option>
                 <option value="bnb">BNB Smart Chain (BSC)</option>
+                <option value="polygon">Polygon (MATIC / POL)</option>
                 <option value="arbitrum">Arbitrum One</option>
                 <option value="base">Base</option>
-                <option value="bitcoin">Bitcoin (BTC)</option>
-                <option value="tron">Tron (TRX)</option>
+                <option value="optimism">Optimism</option>
+                <option value="avalanche">Avalanche C-Chain</option>
+                <option value="litecoin">Litecoin (LTC)</option>
+                <option value="dogecoin">Dogecoin (DOGE)</option>
               </select>
             </div>
             <div>
@@ -592,7 +615,7 @@ export default function TracerPage() {
                       <span>Key Finding</span>
                     </p>
                     <p className="text-xs text-slate-200 font-sans leading-snug">
-                      <strong className="text-white">{result.graph_data.ai_analysis.topology_analysis.topology_label}</strong> — <strong className="text-emerald-300">{result.total_value.toFixed(4)} {result.graph_data.edges[0]?.asset || 'ETH'}</strong> moved across {result.total_wallets} wallets in {result.hops_completed} hops.
+                      <strong className="text-white">{result.graph_data.ai_analysis.topology_analysis.topology_label}</strong> — <strong className="text-emerald-300">{result.total_value.toFixed(4)} {result.graph_data.edges[0]?.asset || (result.chain === 'bitcoin' ? 'BTC' : result.chain === 'tron' ? 'TRX' : result.chain === 'solana' ? 'SOL' : 'ETH')}</strong> moved across {result.total_wallets} wallets in {result.hops_completed} hops.
                     </p>
                   </div>
 

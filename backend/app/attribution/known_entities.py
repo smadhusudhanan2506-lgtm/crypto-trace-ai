@@ -1,17 +1,18 @@
 """
 CryptoTrace AI — Known Entity Attribution Database
-Publicly documented exchange addresses and service labels.
-Every attribution includes source and confidence.
+Publicly documented exchange addresses, protocols, and service labels.
+Supports Ethereum, EVM chains, Bitcoin, Tron, and Solana.
 """
 from typing import Dict, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.tracing import Entity, EntityAddress
 
-# Publicly labeled addresses (from Etherscan labels, public documentation)
-# Source: Etherscan public labels, official documentation
+# Publicly labeled addresses (from Etherscan labels, TronScan, SolScan, public documentation)
 KNOWN_ENTITIES = [
-    # Major global and Indian exchanges — publicly labeled hot wallets & custody
+    # =========================================================================
+    # Binance (Global)
+    # =========================================================================
     {
         "name": "Binance",
         "entity_type": "exchange",
@@ -22,10 +23,68 @@ KNOWN_ENTITIES = [
             {"address": "0x56eddb7aa87536c09ccc2793473599fd21a8b17f", "chain": "ethereum", "label": "Binance Hot Wallet 4", "source": "Etherscan public label"},
             {"address": "0xf977814e90da44bfa03b6295a0616a897441acec", "chain": "ethereum", "label": "Binance Cold Storage", "source": "Etherscan public label"},
             {"address": "0x8894e0a0c962cb723c1976a4421c95949be2d4e3", "chain": "bnb", "label": "Binance Hot Wallet BSC", "source": "BscScan verified"},
+            {"address": "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo", "chain": "bitcoin", "label": "Binance BTC Cold Storage", "source": "BitInfoCharts / Mempool"},
+            {"address": "bc1qm34lsc65zpw79lxes69zkqmk6ee3ewf0j77s3h", "chain": "bitcoin", "label": "Binance BTC Hot Wallet", "source": "Mempool.space"},
+            {"address": "TPYSmva97u7gs3X658tN8dK642xZpTfh9t", "chain": "tron", "label": "Binance Tron Hot Wallet 1", "source": "TronScan verified"},
+            {"address": "TNDc5k2mfLvyvVw8E18x5HqXmH8zF3zMps", "chain": "tron", "label": "Binance Tron Hot Wallet 2", "source": "TronScan verified"},
+            {"address": "5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mB726oWokFmcKK", "chain": "solana", "label": "Binance Solana Hot Wallet 1", "source": "Solscan verified"},
+            {"address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", "chain": "solana", "label": "Binance Solana Hot Wallet 2", "source": "Solscan verified"},
         ],
         "confidence": 0.98,
-        "source": "Etherscan & BscScan verified labels",
+        "source": "Etherscan, TronScan, Solscan & Mempool verified labels",
     },
+
+    # =========================================================================
+    # Coinbase
+    # =========================================================================
+    {
+        "name": "Coinbase",
+        "entity_type": "exchange",
+        "addresses": [
+            {"address": "0x71660c4005ba85c37ccec55d0c4493e66fe775d3", "chain": "ethereum", "label": "Coinbase 1", "source": "Etherscan public label"},
+            {"address": "0x503828976d22510aad0201ac7ec88293211d23da", "chain": "ethereum", "label": "Coinbase 2", "source": "Etherscan public label"},
+            {"address": "0xddfabcdc4d8ffc6d5beaf154f18b778f892a0740", "chain": "ethereum", "label": "Coinbase 3", "source": "Etherscan public label"},
+            {"address": "0x3cd751e6b0078be393132286c442345e5dc49699", "chain": "ethereum", "label": "Coinbase 4", "source": "Etherscan public label"},
+            {"address": "0xa9d1e08c7793af67e9d92fe308d5697fb81d3e43", "chain": "ethereum", "label": "Coinbase Prime", "source": "Etherscan public label"},
+            {"address": "GJRs4FwHtemZ5ZE9x3FNvJ8TMwitKTh21yxdRPqn7npE", "chain": "solana", "label": "Coinbase Solana Hot Wallet 1", "source": "Solscan verified"},
+            {"address": "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS", "chain": "solana", "label": "Coinbase Solana Hot Wallet 2", "source": "Solscan verified"},
+        ],
+        "confidence": 0.98,
+        "source": "Etherscan & Solscan verified labels",
+    },
+
+    # =========================================================================
+    # OKX
+    # =========================================================================
+    {
+        "name": "OKX",
+        "entity_type": "exchange",
+        "addresses": [
+            {"address": "0x6cc5f688a315f3dc28a7781717a9a798a59fda7b", "chain": "ethereum", "label": "OKX 1", "source": "Etherscan public label"},
+            {"address": "0xa7efae728d2936e78bda97dc267687568dd593f3", "chain": "ethereum", "label": "OKX 2", "source": "Etherscan public label"},
+            {"address": "TV6MuMXWWmbtBhyLtfTTgEQnGofVCrStBi", "chain": "tron", "label": "OKX Tron Hot Wallet", "source": "TronScan verified"},
+        ],
+        "confidence": 0.97,
+        "source": "Etherscan & TronScan verified labels",
+    },
+
+    # =========================================================================
+    # Bybit
+    # =========================================================================
+    {
+        "name": "Bybit",
+        "entity_type": "exchange",
+        "addresses": [
+            {"address": "0xf89d7b9c864f589bbf53a82105107622b35eaa40", "chain": "ethereum", "label": "Bybit 1", "source": "Etherscan public label"},
+            {"address": "0x1db3439a222c519ab44bb1144fc28167b4fa6ee6", "chain": "ethereum", "label": "Bybit Hot Wallet", "source": "Etherscan public label"},
+        ],
+        "confidence": 0.96,
+        "source": "Etherscan verified labels",
+    },
+
+    # =========================================================================
+    # Indian Registered Exchanges (FIU-IND)
+    # =========================================================================
     {
         "name": "CoinDCX India",
         "entity_type": "exchange",
@@ -65,19 +124,10 @@ KNOWN_ENTITIES = [
         "confidence": 0.93,
         "source": "FIU-IND Registered VASP Registry",
     },
-    {
-        "name": "Coinbase",
-        "entity_type": "exchange",
-        "addresses": [
-            {"address": "0x71660c4005ba85c37ccec55d0c4493e66fe775d3", "chain": "ethereum", "label": "Coinbase 1", "source": "Etherscan public label"},
-            {"address": "0x503828976d22510aad0201ac7ec88293211d23da", "chain": "ethereum", "label": "Coinbase 2", "source": "Etherscan public label"},
-            {"address": "0xddfabcdc4d8ffc6d5beaf154f18b778f892a0740", "chain": "ethereum", "label": "Coinbase 3", "source": "Etherscan public label"},
-            {"address": "0x3cd751e6b0078be393132286c442345e5dc49699", "chain": "ethereum", "label": "Coinbase 4", "source": "Etherscan public label"},
-            {"address": "0xa9d1e08c7793af67e9d92fe308d5697fb81d3e43", "chain": "ethereum", "label": "Coinbase Prime", "source": "Etherscan public label"},
-        ],
-        "confidence": 0.98,
-        "source": "Etherscan verified labels",
-    },
+
+    # =========================================================================
+    # Kraken
+    # =========================================================================
     {
         "name": "Kraken",
         "entity_type": "exchange",
@@ -89,74 +139,10 @@ KNOWN_ENTITIES = [
         "confidence": 0.97,
         "source": "Etherscan verified labels",
     },
-    {
-        "name": "OKX",
-        "entity_type": "exchange",
-        "addresses": [
-            {"address": "0x6cc5f688a315f3dc28a7781717a9a798a59fda7b", "chain": "ethereum", "label": "OKX 1", "source": "Etherscan public label"},
-            {"address": "0xa7efae728d2936e78bda97dc267687568dd593f3", "chain": "ethereum", "label": "OKX 2", "source": "Etherscan public label"},
-        ],
-        "confidence": 0.96,
-        "source": "Etherscan verified labels",
-    },
-    {
-        "name": "Bybit",
-        "entity_type": "exchange",
-        "addresses": [
-            {"address": "0xf89d7b9c864f589bbf53a82105107622b35eaa40", "chain": "ethereum", "label": "Bybit 1", "source": "Etherscan public label"},
-            {"address": "0x1db3439a222c519ab44bb1144fc28167b4fa6ee6", "chain": "ethereum", "label": "Bybit Hot Wallet", "source": "Etherscan public label"},
-        ],
-        "confidence": 0.96,
-        "source": "Etherscan verified labels",
-    },
-    {
-        "name": "KuCoin",
-        "entity_type": "exchange",
-        "addresses": [
-            {"address": "0xd6216fc19db775df9774a6e33526131da7d19a2c", "chain": "ethereum", "label": "KuCoin 1", "source": "Etherscan public label"},
-            {"address": "0xeb97063d33246399a9b7ffabf1b88e174eb6a5f2", "chain": "ethereum", "label": "KuCoin 2", "source": "Etherscan public label"},
-        ],
-        "confidence": 0.95,
-        "source": "Etherscan verified labels",
-    },
-    {
-        "name": "MEXC",
-        "entity_type": "exchange",
-        "addresses": [
-            {"address": "0x75e89d5979e4f6fba9f97c104c22d23fbab17244", "chain": "ethereum", "label": "MEXC Hot Wallet", "source": "Etherscan public label"},
-        ],
-        "confidence": 0.94,
-        "source": "Etherscan verified labels",
-    },
-    {
-        "name": "Gate.io",
-        "entity_type": "exchange",
-        "addresses": [
-            {"address": "0x0d0707963952f2fba59dd06f2b425ace40b492fe", "chain": "ethereum", "label": "Gate.io 1", "source": "Etherscan public label"},
-        ],
-        "confidence": 0.94,
-        "source": "Etherscan verified labels",
-    },
-    {
-        "name": "FixedFloat (Instant Swap)",
-        "entity_type": "exchange",
-        "addresses": [
-            {"address": "0x4e5b2e1dc63f6b91cb6cd759936495434c7e972f", "chain": "ethereum", "label": "FixedFloat Hot Wallet", "source": "Verified DEX/Instant"},
-        ],
-        "confidence": 0.95,
-        "source": "Publicly flagged instant exchanger",
-    },
-    {
-        "name": "Bitfinex",
-        "entity_type": "exchange",
-        "addresses": [
-            {"address": "0x1151314c646ce4e0efd76d1af4760ae66a9fe30f", "chain": "ethereum", "label": "Bitfinex 1", "source": "Etherscan public label"},
-            {"address": "0x742d35cc6634c0532925a3b844bc9e7595f2bd1e", "chain": "ethereum", "label": "Bitfinex 2", "source": "Etherscan public label"},
-        ],
-        "confidence": 0.92,
-        "source": "Etherscan verified labels",
-    },
+
+    # =========================================================================
     # Mixers & Privacy Protocols
+    # =========================================================================
     {
         "name": "Tornado Cash",
         "entity_type": "mixer",
@@ -170,7 +156,10 @@ KNOWN_ENTITIES = [
         "confidence": 0.99,
         "source": "OFAC Sanctions & Etherscan verified labels",
     },
-    # DeFi & Decentralized Exchanges (Mainnet, Sepolia, Polygon, BSC)
+
+    # =========================================================================
+    # DEXs & AMMs (Uniswap, Raydium, SunSwap, PancakeSwap)
+    # =========================================================================
     {
         "name": "Uniswap",
         "entity_type": "exchange",
@@ -187,6 +176,24 @@ KNOWN_ENTITIES = [
         "source": "Verified smart contracts",
     },
     {
+        "name": "Raydium",
+        "entity_type": "exchange",
+        "addresses": [
+            {"address": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8", "chain": "solana", "label": "Raydium Liquidity Pool V4", "source": "Solana Program Registry"},
+        ],
+        "confidence": 0.98,
+        "source": "Solscan verified program",
+    },
+    {
+        "name": "SunSwap",
+        "entity_type": "exchange",
+        "addresses": [
+            {"address": "TKzxdSv2xMmAQZFeqQnMsgXKGznfSdv11S", "chain": "tron", "label": "SunSwap V2 Router", "source": "TronScan verified contract"},
+        ],
+        "confidence": 0.98,
+        "source": "TronScan verified contract",
+    },
+    {
         "name": "PancakeSwap",
         "entity_type": "exchange",
         "addresses": [
@@ -194,16 +201,6 @@ KNOWN_ENTITIES = [
             {"address": "0x13f4ea83d0bd40e75c8222255bc855a974568dd4", "chain": "bnb", "label": "PancakeSwap V3 Router", "source": "PancakeSwap official"},
         ],
         "confidence": 0.98,
-        "source": "Verified smart contract",
-    },
-    {
-        "name": "Aave V3 Protocol",
-        "entity_type": "defi_protocol",
-        "addresses": [
-            {"address": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2", "chain": "ethereum", "label": "Aave V3 Pool (Mainnet)", "source": "Aave official"},
-            {"address": "0x6ae43d3271ff6888e7fc43fd7321a503ff738951", "chain": "sepolia", "label": "Aave V3 Pool (Sepolia)", "source": "Aave official"},
-        ],
-        "confidence": 0.95,
         "source": "Verified smart contract",
     },
 ]
@@ -224,6 +221,7 @@ def _build_lookup():
                 "source": entity["source"],
                 "label": addr_info.get("label", ""),
                 "address_source": addr_info.get("source", ""),
+                "chain": addr_info.get("chain", ""),
             }
 
 _build_lookup()
@@ -231,7 +229,7 @@ _build_lookup()
 
 async def check_address(address: str) -> Optional[dict]:
     """Check if an address belongs to a known entity."""
-    return _ADDRESS_LOOKUP.get(address.lower())
+    return _ADDRESS_LOOKUP.get(address.strip().lower())
 
 
 async def check_addresses(db: AsyncSession, addresses: List[str]) -> Dict[str, dict]:
@@ -239,19 +237,17 @@ async def check_addresses(db: AsyncSession, addresses: List[str]) -> Dict[str, d
     results = {}
 
     for addr in addresses:
-        # Check in-memory first
-        entity = _ADDRESS_LOOKUP.get(addr.lower())
+        clean_addr = addr.strip().lower()
+        entity = _ADDRESS_LOOKUP.get(clean_addr)
         if entity:
             results[addr] = entity
             continue
 
-        # Check database
         result = await db.execute(
-            select(EntityAddress).where(EntityAddress.address == addr.lower())
+            select(EntityAddress).where(EntityAddress.address == clean_addr)
         )
         db_entity = result.scalar_one_or_none()
         if db_entity:
-            # Get entity details
             ent_result = await db.execute(
                 select(Entity).where(Entity.id == db_entity.entity_id)
             )
@@ -263,6 +259,7 @@ async def check_addresses(db: AsyncSession, addresses: List[str]) -> Dict[str, d
                     "confidence": db_entity.confidence,
                     "source": db_entity.source,
                     "label": db_entity.label,
+                    "chain": db_entity.chain,
                 }
 
     return results
@@ -271,7 +268,6 @@ async def check_addresses(db: AsyncSession, addresses: List[str]) -> Dict[str, d
 async def seed_entities(db: AsyncSession):
     """Seed the database with known entities."""
     for entity_data in KNOWN_ENTITIES:
-        # Check if entity already exists
         result = await db.execute(select(Entity).where(Entity.name == entity_data["name"]))
         existing = result.scalar_one_or_none()
 

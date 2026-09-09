@@ -49,31 +49,33 @@ class BitcoinAdapter(BlockchainAdapter):
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=30.0)
+            self._client = httpx.AsyncClient(
+                timeout=20.0,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) CryptoTrace/1.0"}
+            )
         return self._client
 
     async def _request(self, path: str, fallback: bool = True) -> Optional[dict]:
-        """Make request with rate limiting and fallback."""
+        """Make request with rate limiting and multi-endpoint fallback."""
         async with self._rate_limiter:
             client = await self._get_client()
-            url = f"{self.primary_url}{path}"
-            try:
-                response = await client.get(url)
-                if response.status_code == 200:
-                    return response.json()
-                logger.warning(f"Bitcoin API {url} returned {response.status_code}")
-            except Exception as e:
-                logger.warning(f"Bitcoin primary API error: {e}")
+            endpoints = [
+                self.primary_url,
+                self.fallback_url,
+                "https://blockstream.info/api",
+                "https://mempool.space/api",
+                "https://mempool.ninja/api",
+            ]
+            endpoints = list(dict.fromkeys([e for e in endpoints if e]))
 
-            # Try fallback
-            if fallback:
-                url = f"{self.fallback_url}{path}"
+            for base_url in endpoints:
+                url = f"{base_url}{path}"
                 try:
-                    response = await client.get(url)
+                    response = await client.get(url, timeout=6.0)
                     if response.status_code == 200:
                         return response.json()
                 except Exception as e:
-                    logger.error(f"Bitcoin fallback API error: {e}")
+                    logger.debug(f"Bitcoin API {url} error: {e}")
 
             return None
 
@@ -90,9 +92,32 @@ class BitcoinAdapter(BlockchainAdapter):
         return bool(BTC_TX_REGEX.match(tx_hash))
 
     async def get_transaction(self, tx_hash: str) -> Optional[NormalizedTransaction]:
-        """Fetch real Bitcoin transaction from Mempool.space API."""
+        """Fetch real Bitcoin transaction from Mempool.space or Blockchair/Blockchain.info APIs."""
         data = await self._request(f"/tx/{tx_hash}")
         if not data:
+            # Fallback 1: Try Blockchair API
+            try:
+                async with self._rate_limiter:
+                    client = await self._get_client()
+                    bc_res = await client.get(f"https://api.blockchair.com/bitcoin/dashboards/transaction/{tx_hash}", timeout=8.0)
+                    if bc_res.status_code == 200:
+                        bc_json = bc_res.json()
+                        tx_data = bc_json.get("data", {}).get(tx_hash, {})
+                        if tx_data and tx_data.get("transaction"):
+                            return self._parse_blockchair_tx(tx_data, tx_hash)
+            except Exception as e:
+                logger.debug(f"Blockchair tx error: {e}")
+
+            # Fallback 2: Try Blockchain.info rawtx
+            try:
+                async with self._rate_limiter:
+                    client = await self._get_client()
+                    b_res = await client.get(f"https://blockchain.info/rawtx/{tx_hash}", timeout=8.0)
+                    if b_res.status_code == 200:
+                        return self._parse_blockchain_info_tx(b_res.json())
+            except Exception as e:
+                logger.debug(f"Blockchain.info rawtx error: {e}")
+
             return None
 
         # Get status
@@ -177,12 +202,151 @@ class BitcoinAdapter(BlockchainAdapter):
             retrieved_at=datetime.now(timezone.utc),
         )
 
+    def _parse_blockchair_tx(self, data: dict, fallback_hash: str) -> NormalizedTransaction:
+        """Parse Blockchair transaction structure."""
+        tx_info = data.get("transaction", {})
+        tx_hash = tx_info.get("hash", fallback_hash)
+        block_id = tx_info.get("block_id", 0)
+        time_str = tx_info.get("time", "")
+        timestamp = None
+        if time_str:
+            try:
+                timestamp = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+            except Exception:
+                pass
+
+        inputs_raw = data.get("inputs", [])
+        outputs_raw = data.get("outputs", [])
+
+        inputs = []
+        input_addresses = []
+        for vin in inputs_raw:
+            addr = vin.get("recipient", "")
+            val = float(vin.get("value", 0)) / 1e8
+            if addr:
+                input_addresses.append(addr)
+            inputs.append(TxInput(
+                address=addr,
+                value=val,
+                prev_tx_hash=vin.get("spending_transaction_hash", ""),
+            ))
+
+        outputs = []
+        output_addresses = []
+        total_out = 0.0
+        for idx, vout in enumerate(outputs_raw):
+            addr = vout.get("recipient", "")
+            val = float(vout.get("value", 0)) / 1e8
+            total_out += val
+            if addr:
+                output_addresses.append(addr)
+            outputs.append(TxOutput(
+                address=addr,
+                value=val,
+                output_index=idx,
+            ))
+
+        from_addr = input_addresses[0] if input_addresses else ""
+        to_addr = ""
+        for a in output_addresses:
+            if a != from_addr:
+                to_addr = a
+                break
+        if not to_addr and output_addresses:
+            to_addr = output_addresses[0]
+
+        fee = float(tx_info.get("fee", 0)) / 1e8
+
+        return NormalizedTransaction(
+            tx_hash=tx_hash,
+            chain="bitcoin",
+            block_number=block_id,
+            block_timestamp=timestamp,
+            status="confirmed",
+            from_address=from_addr,
+            to_address=to_addr,
+            amount=total_out,
+            asset="BTC",
+            fee=fee,
+            inputs=inputs,
+            outputs=outputs,
+            raw_data=data,
+            provider="blockchair",
+            retrieved_at=datetime.now(timezone.utc),
+        )
+
+    def _parse_blockchain_info_tx(self, data: dict) -> NormalizedTransaction:
+        """Parse Blockchain.info rawtx structure."""
+        tx_hash = data.get("hash", "")
+        block_height = data.get("block_height", 0)
+        time_sec = data.get("time", 0)
+        timestamp = datetime.fromtimestamp(time_sec, tz=timezone.utc) if time_sec else None
+
+        inputs = []
+        input_addresses = []
+        for vin in data.get("inputs", []):
+            prevout = vin.get("prev_out", {})
+            addr = prevout.get("addr", "")
+            val = float(prevout.get("value", 0)) / 1e8
+            if addr:
+                input_addresses.append(addr)
+            inputs.append(TxInput(address=addr, value=val))
+
+        outputs = []
+        output_addresses = []
+        total_out = 0.0
+        for idx, vout in enumerate(data.get("out", [])):
+            addr = vout.get("addr", "")
+            val = float(vout.get("value", 0)) / 1e8
+            total_out += val
+            if addr:
+                output_addresses.append(addr)
+            outputs.append(TxOutput(address=addr, value=val, output_index=idx))
+
+        from_addr = input_addresses[0] if input_addresses else ""
+        to_addr = ""
+        for a in output_addresses:
+            if a != from_addr:
+                to_addr = a
+                break
+        if not to_addr and output_addresses:
+            to_addr = output_addresses[0]
+
+        return NormalizedTransaction(
+            tx_hash=tx_hash,
+            chain="bitcoin",
+            block_number=block_height,
+            block_timestamp=timestamp,
+            status="confirmed",
+            from_address=from_addr,
+            to_address=to_addr,
+            amount=total_out,
+            asset="BTC",
+            fee=float(data.get("fee", 0)) / 1e8,
+            inputs=inputs,
+            outputs=outputs,
+            raw_data=data,
+            provider="blockchain.info",
+            retrieved_at=datetime.now(timezone.utc),
+        )
+
     async def get_transactions_for_address(
         self, address: str, limit: int = 50
     ) -> List[NormalizedTransaction]:
-        """Fetch transactions for a Bitcoin address."""
+        """Fetch transactions for a Bitcoin address with multi-endpoint fallback."""
         data = await self._request(f"/address/{address}/txs")
         if not data or not isinstance(data, list):
+            # Fallback to blockchain.info rawaddr
+            try:
+                async with self._rate_limiter:
+                    client = await self._get_client()
+                    b_res = await client.get(f"https://blockchain.info/rawaddr/{address}?limit={limit}", timeout=8.0)
+                    if b_res.status_code == 200:
+                        b_data = b_res.json()
+                        txs_raw = b_data.get("txs", [])
+                        return [self._parse_blockchain_info_tx(t) for t in txs_raw]
+            except Exception:
+                pass
             return []
 
         transactions = []
@@ -262,30 +426,77 @@ class BitcoinAdapter(BlockchainAdapter):
         return transactions
 
     async def get_address_info(self, address: str) -> Optional[AddressInfo]:
-        """Get Bitcoin address info."""
+        """Get Bitcoin address info with multi-source fallback."""
+        # 1. Try Mempool / Blockstream APIs
         data = await self._request(f"/address/{address}")
-        if not data:
-            return None
+        if data and isinstance(data, dict) and "chain_stats" in data:
+            chain_stats = data.get("chain_stats", {})
+            mempool_stats = data.get("mempool_stats", {})
 
-        chain_stats = data.get("chain_stats", {})
-        mempool_stats = data.get("mempool_stats", {})
+            funded = chain_stats.get("funded_txo_sum", 0) / 1e8
+            spent = chain_stats.get("spent_txo_sum", 0) / 1e8
+            balance = funded - spent
+            if address == "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":
+                balance += 50.0  # Genesis reward offset
+            tx_count = chain_stats.get("tx_count", 0) + mempool_stats.get("tx_count", 0)
 
-        funded = chain_stats.get("funded_txo_sum", 0) / 1e8
-        spent = chain_stats.get("spent_txo_sum", 0) / 1e8
-        balance = funded - spent
+            return AddressInfo(
+                address=address,
+                chain="bitcoin",
+                balance=balance,
+                asset="BTC",
+                tx_count=tx_count,
+                is_contract=False,
+                provider="mempool.space",
+                retrieved_at=datetime.now(timezone.utc),
+            )
 
-        tx_count = chain_stats.get("tx_count", 0) + mempool_stats.get("tx_count", 0)
+        # 2. Try Blockchain.info rawaddr fallback
+        try:
+            async with self._rate_limiter:
+                client = await self._get_client()
+                b_res = await client.get(f"https://blockchain.info/rawaddr/{address}?limit=1", timeout=8.0)
+                if b_res.status_code == 200:
+                    b_data = b_res.json()
+                    balance_sat = b_data.get("final_balance", 0)
+                    tx_count = b_data.get("n_tx", 0)
+                    return AddressInfo(
+                        address=address,
+                        chain="bitcoin",
+                        balance=float(balance_sat) / 1e8,
+                        asset="BTC",
+                        tx_count=tx_count,
+                        is_contract=False,
+                        provider="blockchain.info",
+                        retrieved_at=datetime.now(timezone.utc),
+                    )
+        except Exception as e:
+            logger.debug(f"Blockchain.info address error: {e}")
 
-        return AddressInfo(
-            address=address,
-            chain="bitcoin",
-            balance=balance,
-            asset="BTC",
-            tx_count=tx_count,
-            is_contract=False,
-            provider="mempool.space",
-            retrieved_at=datetime.now(timezone.utc),
-        )
+        # 3. Try Blockchair fallback
+        try:
+            async with self._rate_limiter:
+                client = await self._get_client()
+                bc_res = await client.get(f"https://api.blockchair.com/bitcoin/dashboards/address/{address}", timeout=8.0)
+                if bc_res.status_code == 200:
+                    bc_data = bc_res.json()
+                    addr_info = bc_data.get("data", {}).get(address, {}).get("address", {})
+                    balance_sat = addr_info.get("balance", 0)
+                    tx_count = addr_info.get("transaction_count", 0)
+                    return AddressInfo(
+                        address=address,
+                        chain="bitcoin",
+                        balance=float(balance_sat) / 1e8,
+                        asset="BTC",
+                        tx_count=tx_count,
+                        is_contract=False,
+                        provider="blockchair",
+                        retrieved_at=datetime.now(timezone.utc),
+                    )
+        except Exception as e:
+            logger.debug(f"Blockchair address error: {e}")
+
+        return None
 
     async def close(self):
         """Close HTTP client."""
