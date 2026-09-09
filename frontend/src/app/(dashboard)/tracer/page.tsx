@@ -270,24 +270,24 @@ export default function TracerPage() {
             <button
               type="button"
               onClick={() => {
-                setInput('TPYSmva97u7gs3X658tN8dK642xZpTfh9t');
+                setInput('TRFU4mQ37a5DbQYhgUXYtNkyJ5pa29ua13');
                 setChain('tron');
                 setMaxHops(5);
               }}
               className="px-3 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-950/70 border border-red-500/50 text-red-300 text-xs font-mono font-bold transition-colors shadow-[0_0_10px_rgba(239,68,68,0.2)]"
             >
-              💵 TRON / USDT: Binance TRC-20 (TPYS...fh9t)
+              💵 TRON / USDT: Binance TRC-20 (TRFU...ua13)
             </button>
             <button
               type="button"
               onClick={() => {
-                setInput('5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mB726oWokFmcKK');
+                setInput('9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM');
                 setChain('solana');
                 setMaxHops(5);
               }}
               className="px-3 py-1.5 rounded-lg bg-violet-950/40 hover:bg-violet-950/70 border border-violet-500/50 text-violet-300 text-xs font-mono font-bold transition-colors shadow-[0_0_10px_rgba(139,92,246,0.2)]"
             >
-              ☀️ SOLANA: Binance SOL Hot Wallet (5tzF...mcKK)
+              ☀️ SOLANA: Binance SOL Hot Wallet (9WzD...AWWM)
             </button>
             <button
               type="button"
