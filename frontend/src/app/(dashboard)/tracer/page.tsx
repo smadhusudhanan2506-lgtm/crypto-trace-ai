@@ -309,31 +309,31 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-extrabold text-white flex items-center gap-3">
-          <Search className="w-7 h-7 text-cyan-400" />
+        <h1 className="text-2xl font-extrabold text-white flex items-center gap-2.5">
+          <Search className="w-6 h-6 text-cyan-400" />
           Multi-Chain TXID & Wallet Tracer
         </h1>
-        <p className="text-base text-slate-300 mt-1.5 leading-relaxed">
+        <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
           Trace on-chain cryptocurrency fund flows, intermediary mules, and detect exchange / VASP liquidation endpoints across Ethereum, Sepolia, Polygon, BSC, Arbitrum, Base, Bitcoin, and Tron.
         </p>
       </div>
 
       {/* Input */}
-      <div className="glass-card p-6">
-        <div className="flex gap-3">
+      <div className="glass-card p-5">
+        <div className="flex gap-2.5">
           <div className="flex-1 relative">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && startTrace()}
-              className="input-field font-mono text-sm sm:text-base pl-4 pr-4 py-3.5"
+              className="input-field font-mono text-xs sm:text-sm pl-3.5 pr-3.5 py-2.5"
               placeholder="Enter transaction hash (TXID 0x...) or wallet address (0x..., bc1..., T...)..."
               disabled={tracing}
             />
           </div>
-          <button onClick={startTrace} disabled={tracing || !input.trim()} className="btn-primary px-7 py-3 text-base font-bold">
-            {tracing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
+          <button onClick={startTrace} disabled={tracing || !input.trim()} className="btn-primary px-5 py-2.5 text-sm font-bold">
+            {tracing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
             {tracing ? 'Tracing...' : 'Trace'}
           </button>
         </div>
@@ -599,37 +599,37 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
               </div>
 
               {/* Title & Action Buttons */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[#1e293b]/70">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 pb-4 border-b border-[#1e293b]/70">
                 <div>
-                  <div className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-7 h-7 text-emerald-400 shrink-0" />
-                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
                       Trace Complete
                     </h2>
-                    <span className="text-xs sm:text-sm px-3 py-0.5 rounded-full font-mono bg-slate-800 text-cyan-300 border border-slate-700 font-semibold">
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-mono bg-slate-800 text-cyan-300 border border-slate-700 font-semibold">
                       ID: {result.id.slice(0, 8)}
                     </span>
                   </div>
-                  <p className="text-sm sm:text-base text-slate-300 mt-1.5 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
                     Path mapped across <strong className="text-white font-bold">{result.hops_completed} sequential hop(s)</strong> and <strong className="text-white font-bold">{result.total_wallets} wallet address(es)</strong>.
                   </p>
                 </div>
 
                 {/* Primary Action Buttons */}
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2.5">
                   <button
                     onClick={() => handleCopy(generateCaseBrief(), 'case_brief')}
-                    className="btn-secondary text-sm font-semibold flex items-center gap-2 py-2.5 px-4 border-slate-700 hover:border-slate-500 transition-all"
+                    className="btn-secondary text-xs sm:text-sm font-semibold flex items-center gap-1.5 py-2 px-3.5 border-slate-700 hover:border-slate-500 transition-all"
                     title="Copy full case briefing for police FIR or investigation report"
                   >
                     {copiedKey === 'case_brief' ? (
                       <>
-                        <Check className="w-4 h-4 text-emerald-400" />
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
                         <span className="text-emerald-400 font-bold">Copied Brief!</span>
                       </>
                     ) : (
                       <>
-                        <Copy className="w-4 h-4 text-slate-400" />
+                        <Copy className="w-3.5 h-3.5 text-slate-400" />
                         <span>Copy FIR Brief</span>
                       </>
                     )}
@@ -639,75 +639,75 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
                     href={`https://www.chainabuse.com/address/${result.start_address || hops[0]?.source_address || ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="btn-secondary text-sm font-semibold flex items-center gap-2 py-2.5 px-4 border-slate-700 hover:border-slate-500 text-slate-300 transition-all"
+                    className="btn-secondary text-xs sm:text-sm font-semibold flex items-center gap-1.5 py-2 px-3.5 border-slate-700 hover:border-slate-500 text-slate-300 transition-all"
                   >
-                    <ShieldAlert className="w-4 h-4 text-amber-400" />
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
                     <span>Threat Intel</span>
-                    <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                    <ExternalLink className="w-3 h-3 opacity-60" />
                   </a>
 
                   {result.graph_data?.nodes?.length > 0 && (
                     <Link
                       href={`/graph?trace_id=${result.id}`}
-                      className="btn-primary text-sm font-bold flex items-center gap-2 py-2.5 px-5 shadow-[0_0_20px_rgba(0,255,102,0.25)] hover:shadow-[0_0_25px_rgba(0,255,102,0.4)] transition-all"
+                      className="btn-primary text-xs sm:text-sm font-bold flex items-center gap-1.5 py-2 px-4 shadow-[0_0_20px_rgba(0,255,102,0.25)] hover:shadow-[0_0_25px_rgba(0,255,102,0.4)] transition-all"
                     >
-                      <Network className="w-4 h-4" />
+                      <Network className="w-3.5 h-3.5" />
                       <span>View Interactive Graph</span>
-                      <ArrowUpRight className="w-4 h-4" />
+                      <ArrowUpRight className="w-3.5 h-3.5" />
                     </Link>
                   )}
                 </div>
               </div>
 
               {/* 5 Core Metrics Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 pt-5">
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-colors">
-                  <div className="flex items-center gap-2 text-sm text-slate-300 font-semibold">
-                    <Activity className="w-4 h-4 text-cyan-400" />
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-4">
+                <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/40 transition-colors">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-300 font-semibold">
+                    <Activity className="w-3.5 h-3.5 text-cyan-400" />
                     <span>Total Value</span>
                   </div>
-                  <p className="text-xl sm:text-2xl font-extrabold text-white font-mono mt-1.5">
-                    {result.total_value.toFixed(4)} <span className="text-sm text-cyan-400 font-sans font-bold">{asset}</span>
+                  <p className="text-lg sm:text-xl font-extrabold text-white font-mono mt-1">
+                    {result.total_value.toFixed(4)} <span className="text-xs text-cyan-400 font-sans font-bold">{asset}</span>
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-400 mt-1">Net on-chain transfer</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Net on-chain transfer</p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-violet-500/40 transition-colors">
-                  <div className="flex items-center gap-2 text-sm text-slate-300 font-semibold">
-                    <Layers className="w-4 h-4 text-violet-400" />
+                <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-violet-500/40 transition-colors">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-300 font-semibold">
+                    <Layers className="w-3.5 h-3.5 text-violet-400" />
                     <span>Hops Traced</span>
                   </div>
-                  <p className="text-xl sm:text-2xl font-extrabold text-violet-300 font-mono mt-1.5">
-                    {result.hops_completed} <span className="text-sm text-slate-400 font-sans font-normal">Hop{result.hops_completed === 1 ? '' : 's'}</span>
+                  <p className="text-lg sm:text-xl font-extrabold text-violet-300 font-mono mt-1">
+                    {result.hops_completed} <span className="text-xs text-slate-400 font-sans font-normal">Hop{result.hops_completed === 1 ? '' : 's'}</span>
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-400 mt-1">Sequential ledger path</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Sequential ledger path</p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-amber-500/40 transition-colors">
-                  <div className="flex items-center gap-2 text-sm text-slate-300 font-semibold">
-                    <Globe className="w-4 h-4 text-amber-400" />
+                <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-amber-500/40 transition-colors">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-300 font-semibold">
+                    <Globe className="w-3.5 h-3.5 text-amber-400" />
                     <span>Wallets Identified</span>
                   </div>
-                  <p className="text-xl sm:text-2xl font-extrabold text-amber-300 font-mono mt-1.5">
-                    {result.total_wallets} <span className="text-sm text-slate-400 font-sans font-normal">Wallets</span>
+                  <p className="text-lg sm:text-xl font-extrabold text-amber-300 font-mono mt-1">
+                    {result.total_wallets} <span className="text-xs text-slate-400 font-sans font-normal">Wallets</span>
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-400 mt-1">Nodes in fund chain</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Nodes in fund chain</p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/40 transition-colors">
-                  <div className="flex items-center gap-2 text-sm text-slate-300 font-semibold">
-                    <Clock className="w-4 h-4 text-emerald-400" />
+                <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-emerald-500/40 transition-colors">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-300 font-semibold">
+                    <Clock className="w-3.5 h-3.5 text-emerald-400" />
                     <span>Layering Velocity</span>
                   </div>
-                  <p className="text-xl sm:text-2xl font-extrabold text-[#00ff66] font-mono mt-1.5">
+                  <p className="text-lg sm:text-xl font-extrabold text-[#00ff66] font-mono mt-1">
                     {formatDuration(metrics?.average_time_delta_seconds)}
                   </p>
-                  <p className="text-xs sm:text-sm text-slate-300 mt-1 font-medium">
+                  <p className="text-[11px] text-slate-300 mt-0.5 font-medium">
                     {metrics?.is_bot_automated ? '⚡ Automated Bot' : '👤 Human Paced'}
                   </p>
                 </div>
 
-                <div className="col-span-2 sm:col-span-1 p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-purple-500/40 transition-colors">
+                <div className="col-span-2 sm:col-span-1 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-purple-500/40 transition-colors">
                   <div className="flex items-center gap-2 text-sm text-slate-300 font-semibold">
                     <Target className="w-4 h-4 text-purple-400" />
                     <span>Destination Endpoint</span>
@@ -910,33 +910,33 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
               <button
                 onClick={() => setActiveTab('story')}
                 className={cn(
-                  "flex items-center gap-2.5 px-5 py-3 rounded-lg text-sm sm:text-base font-bold transition-all shrink-0",
+                  "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all shrink-0",
                   activeTab === 'story'
                     ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                 )}
               >
-                <FileText className="w-4 h-4" />
+                <FileText className="w-3.5 h-3.5" />
                 <span>Executive Story & Summary</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('scam_intel')}
                 className={cn(
-                  "flex items-center gap-2.5 px-5 py-3 rounded-lg text-sm sm:text-base font-bold transition-all shrink-0",
+                  "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all shrink-0",
                   activeTab === 'scam_intel'
                     ? "bg-purple-500/15 text-purple-300 border border-purple-500/30 shadow-sm"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                 )}
               >
-                <BrainCircuit className="w-4 h-4 text-purple-400" />
+                <BrainCircuit className="w-3.5 h-3.5 text-purple-400" />
                 <span>Scam Pattern Intelligence</span>
                 {scamAnalysis?.primary_pattern ? (
-                  <span className="text-xs px-2 py-0.5 rounded-full font-mono bg-purple-900/60 text-purple-300 border border-purple-700/60 font-bold">
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-mono bg-purple-900/60 text-purple-300 border border-purple-700/60 font-bold">
                     {scamAnalysis.primary_pattern.score}/100
                   </span>
                 ) : (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold font-mono">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold font-mono">
                     AI ESTIMATE
                   </span>
                 )}
@@ -945,15 +945,15 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
               <button
                 onClick={() => setActiveTab('hops')}
                 className={cn(
-                  "flex items-center gap-2.5 px-5 py-3 rounded-lg text-sm sm:text-base font-bold transition-all shrink-0",
+                  "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all shrink-0",
                   activeTab === 'hops'
                     ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                 )}
               >
-                <Zap className="w-4 h-4 text-amber-400" />
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
                 <span>Transaction Trail</span>
-                <span className="text-xs px-2 py-0.5 rounded-full font-mono bg-slate-800 text-slate-300 border border-slate-700 font-bold">
+                <span className="text-[11px] px-2 py-0.5 rounded-full font-mono bg-slate-800 text-slate-300 border border-slate-700 font-bold">
                   {hops.length}
                 </span>
               </button>
@@ -961,26 +961,26 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
               <button
                 onClick={() => setActiveTab('forensics')}
                 className={cn(
-                  "flex items-center gap-2.5 px-5 py-3 rounded-lg text-sm sm:text-base font-bold transition-all shrink-0",
+                  "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all shrink-0",
                   activeTab === 'forensics'
                     ? "bg-violet-500/15 text-violet-300 border border-violet-500/30 shadow-sm"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                 )}
               >
-                <BrainCircuit className="w-4 h-4" />
+                <BrainCircuit className="w-3.5 h-3.5" />
                 <span>Forensic Deep-Dive & Glossary</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('actions')}
                 className={cn(
-                  "flex items-center gap-2.5 px-5 py-3 rounded-lg text-sm sm:text-base font-bold transition-all shrink-0",
+                  "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all shrink-0",
                   activeTab === 'actions'
                     ? "bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                 )}
               >
-                <ShieldAlert className="w-4 h-4 text-amber-400" />
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
                 <span>Action Plan & Police Guide</span>
               </button>
             </div>
