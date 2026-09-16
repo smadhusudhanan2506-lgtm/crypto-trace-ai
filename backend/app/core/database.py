@@ -41,6 +41,7 @@ def register_models():
     import app.cases.models  # noqa: F401
     import app.victims.models  # noqa: F401
     import app.tracing  # noqa: F401
+    import app.scam_detection.models  # noqa: F401
 
 
 # Call immediately on module load

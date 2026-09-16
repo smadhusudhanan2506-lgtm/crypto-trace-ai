@@ -487,3 +487,121 @@ export interface AppConfig {
     eth_explorer: boolean;
   };
 }
+
+// ─── Scam Pattern Intelligence ──────────────────────────────────────────────
+export interface ScamPatternPrimary {
+  id: string;
+  name: string;
+  badge: string;
+  description: string;
+  score: number;
+  confidence_label: string;
+  evidence_strength: string;
+  signals: string[];
+}
+
+export interface ScamPatternAlternative {
+  id: string;
+  name: string;
+  score: number;
+  signals_count?: number;
+}
+
+export interface ScamPatternFeatures {
+  total_nodes: number;
+  total_edges: number;
+  number_of_hops: number;
+  max_hop_depth: number;
+  incoming_tx_count: number;
+  outgoing_tx_count: number;
+  unique_senders: number;
+  unique_receivers: number;
+  source_wallet_count: number;
+  destination_wallet_count: number;
+  wallet_splitting_events: number;
+  wallet_merging_events: number;
+  max_in_degree: number;
+  max_out_degree: number;
+  branching_factor: number;
+  has_fan_in: boolean;
+  has_fan_out: boolean;
+  has_consolidation: boolean;
+  repeated_destinations: number;
+  repeated_sources: number;
+  total_amount_received: number;
+  total_amount_sent: number;
+  amount_concentration: number;
+  largest_destination_pct: number;
+  largest_source_pct: number;
+  small_repeated_txs_count: number;
+  large_transfers_count: number;
+  transaction_amount_similarity: number;
+  fund_consolidation_ratio: number;
+  first_timestamp: string;
+  last_timestamp: string;
+  time_between_transactions_avg: number;
+  rapid_transfer_count: number;
+  has_rapid_forwarding: boolean;
+  burst_activity_detected: boolean;
+  distinct_tokens_count: number;
+  token_transfer_count: number;
+  native_transfers_count: number;
+  token_swap_detected: boolean;
+  approval_interaction_detected: boolean;
+  is_cross_chain: boolean;
+  bridge_detected: boolean;
+  source_chain: string;
+  dest_chain: string;
+  chain_switches_count: number;
+  vasp_exchange_detected: boolean;
+  vasp_names: string[];
+  dex_detected: boolean;
+  mixer_detected: boolean;
+}
+
+export interface ScamGraphSignal {
+  name: string;
+  detected: boolean;
+  severity: 'high' | 'medium' | 'neutral' | 'actionable';
+}
+
+export interface ScamNodeRole {
+  address: string;
+  role: string;
+  reason: string;
+  chain: string;
+  in_degree: number;
+  out_degree: number;
+}
+
+export interface ScamPatternAnalysisResult {
+  success: boolean;
+  analysis_id?: string;
+  case_id?: string | null;
+  trace_id?: string | null;
+  chain: string;
+  txid: string;
+  wallet: string;
+  primary_pattern: ScamPatternPrimary;
+  alternative_patterns: ScamPatternAlternative[];
+  all_scores: Record<string, number>;
+  features: ScamPatternFeatures;
+  evidence: string[];
+  graph_signals: ScamGraphSignal[];
+  node_roles: Record<string, ScamNodeRole>;
+  limitations: string[];
+  summary_narrative: string;
+  correlated_cases: Array<{
+    type: string;
+    case_id?: string;
+    case_number?: string;
+    title?: string;
+    wallet?: string;
+    txid?: string;
+    status?: string;
+    priority?: string;
+    reported_amount?: number;
+    amount_lost?: number;
+    cryptocurrency?: string;
+  }>;
+}

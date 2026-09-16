@@ -18,6 +18,7 @@ from app.analytics.router import (
     evidence_router, audit_router, alerts_router,
     vasp_router, threat_intel_router,
 )
+from app.scam_detection.router import router as scam_detection_router
 
 # Configure logging
 logging.basicConfig(
@@ -121,6 +122,7 @@ app.include_router(audit_router)
 app.include_router(alerts_router)
 app.include_router(vasp_router)
 app.include_router(threat_intel_router)
+app.include_router(scam_detection_router)
 
 
 @app.get("/api/health")

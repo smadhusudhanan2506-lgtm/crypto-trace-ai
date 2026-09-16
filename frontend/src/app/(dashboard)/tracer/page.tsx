@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { tracingAPI, blockchainAPI } from '@/lib/api';
+import { tracingAPI, blockchainAPI, scamAPI } from '@/lib/api';
+import ScamIntelligencePanel from '@/components/scam/ScamIntelligencePanel';
 import { truncateAddress, truncateHash, cn, timeAgo, formatDate, formatDuration, copyToClipboard } from '@/lib/utils';
-import type { TraceDetail, TraceHop, TraceStatus } from '@/types';
+import type { TraceDetail, TraceHop, TraceStatus, ScamPatternAnalysisResult } from '@/types';
 import {
   Search, Play, Loader2, CheckCircle2, XCircle, Network,
   ArrowRight, Zap, ChevronDown, ChevronUp, ExternalLink,
@@ -44,10 +45,12 @@ export default function TracerPage() {
   const [result, setResult] = useState<TraceDetail | null>(null);
   const [hops, setHops] = useState<TraceHop[]>([]);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'story' | 'hops' | 'forensics' | 'actions'>('story');
+  const [activeTab, setActiveTab] = useState<'story' | 'scam_intel' | 'hops' | 'forensics' | 'actions'>('story');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [searchHop, setSearchHop] = useState('');
   const [showJargonGuide, setShowJargonGuide] = useState(false);
+  const [scamAnalysis, setScamAnalysis] = useState<ScamPatternAnalysisResult | null>(null);
+  const [analyzingScam, setAnalyzingScam] = useState(false);
 
   const handleCopy = async (text: string, key: string) => {
     const success = await copyToClipboard(text);
@@ -57,12 +60,43 @@ export default function TracerPage() {
     }
   };
 
+  const runScamAnalysis = useCallback(async (traceData: TraceDetail) => {
+    if (!traceData?.graph_data?.nodes?.length) return;
+    setAnalyzingScam(true);
+    try {
+      const res = await scamAPI.evaluate({
+        nodes: traceData.graph_data.nodes,
+        edges: traceData.graph_data.edges || [],
+        chain: traceData.chain,
+        start_address: traceData.start_address,
+        start_tx_hash: traceData.start_tx_hash,
+        case_id: traceData.case_id || undefined,
+      });
+      if (res?.data) {
+        setScamAnalysis(res.data);
+      }
+    } catch (err) {
+      console.error('Scam pattern intelligence evaluation error:', err);
+    } finally {
+      setAnalyzingScam(false);
+    }
+  }, []);
+
   const generateCaseBrief = () => {
     if (!result) return '';
     const ai = result.graph_data?.ai_analysis;
     const topology = ai?.topology_analysis;
     const isDex = result.vasp_name?.toLowerCase().includes('uniswap') || result.vasp_name?.toLowerCase().includes('pancake') || result.vasp_name?.toLowerCase().includes('router');
     const asset = result.graph_data?.edges?.[0]?.asset || (result.chain === 'bitcoin' ? 'BTC' : result.chain === 'tron' ? 'TRX' : result.chain === 'solana' ? 'SOL' : 'ETH');
+
+    const scamSection = scamAnalysis?.primary_pattern ? `
+SCAM PATTERN INTELLIGENCE (HYPOTHESIS / ESTIMATE):
+- Likely Scam Pattern: ${scamAnalysis.primary_pattern.name}
+- Pattern Consistency Score: ${scamAnalysis.primary_pattern.score}/100 (${scamAnalysis.primary_pattern.confidence_label})
+- Evidence Strength: ${scamAnalysis.primary_pattern.evidence_strength}
+- Key Observed Indicators:
+${scamAnalysis.evidence.map(e => `  * ${e}`).join('\n')}
+- Statutory Notice: Pattern matching estimates architectural archetype consistency based on visible on-chain topology. Off-chain scam classification requires corroboration with complaint statements.` : '';
     
     return `=== CRYPTOTRACE AI FORENSIC CASE BRIEF ===
 Trace ID: ${result.id}
@@ -72,6 +106,7 @@ Risk Verdict: ${ai?.verdict?.fraud_type || 'Crypto Fund Flow'} (Confidence: ${ai
 
 EXECUTIVE SUMMARY:
 ${ai?.executive_summary || `Funds totaling ${result.total_value.toFixed(4)} ${asset} were traced across ${result.hops_completed} hop(s) and ${result.total_wallets} wallets.`}
+${scamSection}
 
 KEY FORENSIC METRICS:
 - Total Value: ${result.total_value.toFixed(4)} ${asset}
@@ -109,6 +144,9 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
       setHops(hopsRes.data);
       if (traceRes.data?.chain) {
         setChain(traceRes.data.chain);
+      }
+      if (traceRes.data) {
+        runScamAnalysis(traceRes.data);
       }
     } catch (err) {
       console.error('Load trace error:', err);
@@ -156,6 +194,7 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
     setTracing(true);
     setResult(null);
     setHops([]);
+    setScamAnalysis(null);
     
     // Stage 1: Initial Ledger Probe
     setStatus({
@@ -207,7 +246,7 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
         total_transactions: 1,
       });
 
-      // Execute on-chain trace query
+      // Execute on-chain trace query with timeout guard
       const tracePromise = tracingAPI.start({
         tx_hash: isTx ? trimmed : '',
         address: !isTx ? trimmed : '',
@@ -238,7 +277,10 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
         total_transactions: 3,
       });
 
-      const res = await tracePromise;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('On-chain trace query timed out after 12s. Please check network connection.')), 12000)
+      );
+      const res = await Promise.race([tracePromise, timeoutPromise]);
       setTraceId(res.data.trace_id);
 
       await delay(350);
@@ -528,9 +570,9 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
                   </div>
                 </div>
 
-                {/* Risk Verdict Pill */}
-                {ai?.verdict && (
-                  <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {/* Risk Verdict Pill */}
+                  {ai?.verdict && (
                     <span className={cn(
                       "px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold uppercase tracking-wider border flex items-center gap-2 shadow-md",
                       isScam
@@ -540,8 +582,20 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
                       {isScam ? <AlertOctagon className="w-4 h-4 text-red-400" /> : <ShieldCheck className="w-4 h-4 text-emerald-400" />}
                       <span>{ai.verdict.fraud_type} ({ai.verdict.confidence_percentage})</span>
                     </span>
-                  </div>
-                )}
+                  )}
+
+                  {/* Scam Pattern Intelligence Archetype Pill */}
+                  {scamAnalysis?.primary_pattern && (
+                    <button
+                      onClick={() => setActiveTab('scam_intel')}
+                      className="px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold tracking-wider border flex items-center gap-2 shadow-md bg-purple-950/60 text-purple-200 border-purple-500/50 hover:border-purple-400 hover:bg-purple-900/60 transition-all cursor-pointer"
+                      title="Click to view explainable Scam Pattern Intelligence"
+                    >
+                      <BrainCircuit className="w-4 h-4 text-purple-400" />
+                      <span>Likely Pattern: {scamAnalysis.primary_pattern.name} ({scamAnalysis.primary_pattern.score}/100)</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Title & Action Buttons */}
@@ -867,6 +921,28 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
               </button>
 
               <button
+                onClick={() => setActiveTab('scam_intel')}
+                className={cn(
+                  "flex items-center gap-2.5 px-5 py-3 rounded-lg text-sm sm:text-base font-bold transition-all shrink-0",
+                  activeTab === 'scam_intel'
+                    ? "bg-purple-500/15 text-purple-300 border border-purple-500/30 shadow-sm"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                )}
+              >
+                <BrainCircuit className="w-4 h-4 text-purple-400" />
+                <span>Scam Pattern Intelligence</span>
+                {scamAnalysis?.primary_pattern ? (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-mono bg-purple-900/60 text-purple-300 border border-purple-700/60 font-bold">
+                    {scamAnalysis.primary_pattern.score}/100
+                  </span>
+                ) : (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold font-mono">
+                    AI ESTIMATE
+                  </span>
+                )}
+              </button>
+
+              <button
                 onClick={() => setActiveTab('hops')}
                 className={cn(
                   "flex items-center gap-2.5 px-5 py-3 rounded-lg text-sm sm:text-base font-bold transition-all shrink-0",
@@ -1047,6 +1123,61 @@ ${ai?.police_action_plan?.[0]?.purpose || ''}
                     </p>
                   </div>
                 </div>
+
+                {/* Scam Pattern Intelligence Archetype Summary Card */}
+                {scamAnalysis?.primary_pattern && (
+                  <div className="p-5 sm:p-6 rounded-xl glass-card border border-purple-500/30 bg-purple-950/20 space-y-3 shadow-lg">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-500/20 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <BrainCircuit className="w-5 h-5 text-purple-400 shrink-0" />
+                        <div>
+                          <h4 className="text-base sm:text-lg font-bold text-white">
+                            Likely Scam Archetype: <span className="text-purple-300">{scamAnalysis.primary_pattern.name}</span>
+                          </h4>
+                          <p className="text-xs text-purple-400/80 font-mono">
+                            Explainable Pattern Consistency Evaluation • {scamAnalysis.primary_pattern.evidence_strength}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          {scamAnalysis.primary_pattern.score}/100 Consistency
+                        </span>
+                        <button
+                          onClick={() => setActiveTab('scam_intel')}
+                          className="text-xs px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold transition-colors flex items-center gap-1.5 shadow-md"
+                        >
+                          <span>Open Deep Inspector</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-sm sm:text-base text-slate-200 leading-relaxed">
+                      {scamAnalysis.summary_narrative}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-xs font-mono">
+                      <span className="text-purple-300 font-semibold">Observed On-Chain Signals:</span>
+                      {scamAnalysis.graph_signals.filter(s => s.detected).slice(0, 4).map((sig, idx) => (
+                        <span key={idx} className="px-2 py-0.5 rounded bg-slate-900/90 border border-purple-500/30 text-purple-200">
+                          ✓ {sig.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB: SCAM PATTERN INTELLIGENCE */}
+            {activeTab === 'scam_intel' && (
+              <div className="space-y-5 animate-fade-in">
+                {result && (
+                  <ScamIntelligencePanel
+                    analysis={scamAnalysis}
+                    loading={analyzingScam}
+                    onRefresh={() => runScamAnalysis(result)}
+                  />
+                )}
               </div>
             )}
 

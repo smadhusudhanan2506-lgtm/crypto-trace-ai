@@ -12,6 +12,7 @@ import type {
   RiskAnalysis, Evidence, AuditLog, Alert,
   DashboardStats, AppConfig, NormalizedTransaction, ChainIdentification,
   AIAssessment, User, GraphNode, GraphEdge, GraphTopologyAnalysis,
+  ScamPatternAnalysisResult,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -512,6 +513,7 @@ async function rpcPost(chain: string, method: string, params: unknown[]): Promis
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(2500),
       });
       if (res.ok) {
         const json = await res.json();
@@ -570,16 +572,17 @@ async function fetchAlchemyAssetTransfers(address: string, chain: string, direct
       paramObj.toAddress = address;
     }
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'alchemy_getAssetTransfers',
-        params: [paramObj],
-      }),
-    });
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'alchemy_getAssetTransfers',
+          params: [paramObj],
+        }),
+        signal: AbortSignal.timeout(2500),
+      });
 
     if (res.ok) {
       const data = await res.json();
@@ -1428,8 +1431,10 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = '')
         { address: suspectAddr, hop: 1, parentTxTimestamp: primaryTx.blockTimestamp }
       ];
       const maxHops = 5;
+      const bfsStartTime = Date.now();
 
       while (bfsQueue.length > 0 && nodes.length < 25) {
+        if (Date.now() - bfsStartTime > 3500) break; // Hard safety cap: never freeze UI
         const current = bfsQueue.shift()!;
         if (current.hop >= maxHops) continue;
 
@@ -1648,7 +1653,9 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = '')
       }
 
       // Recursive multi-hop expansion for wallet address (Hop 3 & 4)
+      const addrBfsStartTime = Date.now();
       while (addrBfsQueue.length > 0 && nodes.length < 20) {
+        if (Date.now() - addrBfsStartTime > 3500) break; // Hard safety cap: never freeze UI
         const curr = addrBfsQueue.shift()!;
         if (curr.hop >= 4) continue;
 
@@ -3121,3 +3128,57 @@ export const configAPI = {
     }
   },
 };
+
+export const scamAPI = {
+  evaluate: async (data: {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    chain?: string;
+    start_address?: string;
+    start_tx_hash?: string;
+    case_id?: string;
+  }): Promise<{ data: ScamPatternAnalysisResult }> => {
+    try {
+      return await api.post<ScamPatternAnalysisResult>('/api/scam-analysis/evaluate', data, { timeout: 3000 });
+    } catch {
+      const { evaluateScamIntelligence } = await import('./scam-intelligence');
+      const result = await evaluateScamIntelligence(
+        data.nodes,
+        data.edges,
+        data.chain || 'ethereum',
+        data.start_address || '',
+        data.start_tx_hash || '',
+        data.case_id
+      );
+      return { data: result };
+    }
+  },
+  analyze: async (data: {
+    trace_id?: string;
+    case_id?: string;
+    chain: string;
+    txid?: string;
+    wallet?: string;
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  }): Promise<{ data: ScamPatternAnalysisResult }> => {
+    try {
+      return await api.post<ScamPatternAnalysisResult>('/api/scam-analysis', data, { timeout: 3000 });
+    } catch {
+      const { evaluateScamIntelligence } = await import('./scam-intelligence');
+      const result = await evaluateScamIntelligence(
+        data.nodes,
+        data.edges,
+        data.chain,
+        data.wallet || '',
+        data.txid || '',
+        data.case_id
+      );
+      return { data: result };
+    }
+  },
+  get: async (id: string): Promise<{ data: ScamPatternAnalysisResult }> => {
+    return await api.get<ScamPatternAnalysisResult>(`/api/scam-analysis/${id}`);
+  },
+};
+

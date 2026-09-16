@@ -3,9 +3,9 @@
 import { useEffect, useState, useRef, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { tracingAPI, analyticsAPI, checkKnownVasp } from '@/lib/api';
+import { tracingAPI, analyticsAPI, checkKnownVasp, scamAPI } from '@/lib/api';
 import { truncateAddress, truncateHash, formatCurrency, cn } from '@/lib/utils';
-import type { TraceDetail, TraceHop, GraphData, GraphNode, GraphEdge, AIAssessment } from '@/types';
+import type { TraceDetail, TraceHop, GraphData, GraphNode, GraphEdge, AIAssessment, ScamPatternAnalysisResult } from '@/types';
 import {
   Network, ZoomIn, ZoomOut, Maximize, Download, RotateCcw,
   ArrowRight, Shield, Globe, AlertTriangle, Wallet, ExternalLink,
@@ -26,6 +26,7 @@ function GraphContent() {
   const [traceDetail, setTraceDetail] = useState<TraceDetail | null>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<AIAssessment | null>(null);
+  const [scamAnalysis, setScamAnalysis] = useState<ScamPatternAnalysisResult | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
   const [showAiBanner, setShowAiBanner] = useState(true);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -68,6 +69,19 @@ function GraphContent() {
       setTraceDetail(traceRes.data);
       setGraphData(traceRes.data.graph_data);
       
+      if (traceRes.data?.graph_data?.nodes?.length) {
+        scamAPI.evaluate({
+          nodes: traceRes.data.graph_data.nodes,
+          edges: traceRes.data.graph_data.edges || [],
+          chain: traceRes.data.chain,
+          start_address: traceRes.data.start_address,
+          start_tx_hash: traceRes.data.start_tx_hash,
+          case_id: traceRes.data.case_id || undefined,
+        }).then(scamRes => {
+          if (scamRes?.data) setScamAnalysis(scamRes.data);
+        }).catch(e => console.error('Graph scam eval error:', e));
+      }
+
       if (traceRes.data.graph_data?.ai_analysis) {
         setAiAnalysis(traceRes.data.graph_data.ai_analysis);
       } else {
@@ -765,6 +779,20 @@ function GraphContent() {
               </p>
             </div>
           </div>
+
+          {scamAnalysis?.primary_pattern && (
+            <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/40 flex items-center gap-3 col-span-2 sm:col-span-1 shadow-md">
+              <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400 shrink-0">
+                <BrainCircuit className="w-4 h-4" />
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-[10px] text-purple-300 font-mono uppercase">Scam Archetype</p>
+                <p className="text-xs sm:text-sm font-bold text-purple-200 font-mono truncate" title={scamAnalysis.primary_pattern.name}>
+                  {scamAnalysis.primary_pattern.name} ({scamAnalysis.primary_pattern.score}/100)
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1746,6 +1774,26 @@ function GraphContent() {
                   {selectedNode.hop !== undefined ? `Hop Level ${selectedNode.hop}` : 'Source Point'}
                 </p>
               </div>
+
+              {/* Scam Intelligence Role Attribution */}
+              {scamAnalysis?.node_roles?.[selectedNode.id] && (
+                <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/40 space-y-1">
+                  <p className="text-[10px] uppercase text-purple-300 font-bold flex items-center gap-1">
+                    <BrainCircuit className="w-3 h-3 text-purple-400" />
+                    <span>Scam Intelligence Role</span>
+                  </p>
+                  <p className="text-xs font-bold text-white uppercase tracking-wider">
+                    {scamAnalysis.node_roles[selectedNode.id].role}
+                  </p>
+                  <p className="text-[11px] text-slate-300 leading-tight">
+                    {scamAnalysis.node_roles[selectedNode.id].reason}
+                  </p>
+                  <div className="flex items-center justify-between pt-1 text-[10px] text-purple-300 font-mono">
+                    <span>Inflows: {scamAnalysis.node_roles[selectedNode.id].in_degree}</span>
+                    <span>Outflows: {scamAnalysis.node_roles[selectedNode.id].out_degree}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Quick Actions */}
               <div className="pt-2">
