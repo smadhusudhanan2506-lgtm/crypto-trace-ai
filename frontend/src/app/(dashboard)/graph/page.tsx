@@ -35,7 +35,7 @@ function GraphContent() {
   const [layout, setLayout] = useState('breadthfirst');
   const [loading, setLoading] = useState(true);
   const [copiedText, setCopiedText] = useState('');
-  const [intelView, setIntelView] = useState<'flow' | 'story' | 'signatures'>('flow');
+  const [intelView, setIntelView] = useState<'story' | 'signatures'>('story');
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -820,13 +820,6 @@ function GraphContent() {
             ? `The victim suffered unauthorized drainage of ${traceDetail?.total_value ? `${traceDetail.total_value.toFixed(4)} ETH` : 'defrauded assets'}. An automated bot network immediately fractured the stolen funds across ${Math.max(1, totalNodesCount - 2)} throwaway burner mule wallets in under 2 minutes, then funneled them back together to prevent statutory freezing.`
             : "Direct peer-to-peer cryptocurrency transfer between counterparties with verified clean transaction history and no money mule or mixer activity."
         );
-        let patternFlowTitle = topology?.pattern_flow_summary || (
-          isScam
-            ? (hasFanIn
-                ? `Victim (Hop 0) ➔ Primary Scammer ➔ ${Math.max(1, totalNodesCount - 2)} Burner Mules (Fan-Out) ➔ Collector Hub (Fan-In) ➔ Destination`
-                : `Victim (Hop 0) ➔ Primary Scammer ➔ ${Math.max(1, totalNodesCount - 2)} Burner Mules (Fan-Out Dispersal)`)
-            : `Sender (Hop 0) ➔ Recipient Counterparty (${totalHopsCount} Direct Transfer)`
-        );
         let whyScammerReason = topology?.predicted_purpose || (
           isScam
             ? "Preemptive asset splitting: Scammers fracture stolen funds across throwaway burner mules so law enforcement or exchanges cannot freeze the full amount with a single notice."
@@ -849,62 +842,6 @@ function GraphContent() {
           plainEnglishStory = `Stolen cryptocurrency was bounced through money mules, terminating at a custodial deposit account at ${detectedVasp} to liquidate into fiat currency or P2P bank transfers.`;
           whyScammerReason = "Terminal liquidation of stolen cryptocurrency into fiat currency through exchange account (Subpoenable target under Section 91 CrPC).";
         }
-
-        // Generate Flow Stages for visual pipeline
-        const flowStages = (topology?.flow_stages && topology.flow_stages.length > 0)
-          ? topology.flow_stages
-          : [
-              {
-                stage: 1,
-                title: isScam ? "Victim Loss" : "Sender Origin",
-                role: "VICTIM (Hop 0)",
-                badge: isScam ? "Theft Point" : "Clean Source",
-                description: isScam 
-                  ? `Unauthorized drainage of ${traceDetail?.total_value ? `${traceDetail.total_value.toFixed(4)} ETH` : 'defrauded assets'}`
-                  : `Transferred ${traceDetail?.total_value ? `${traceDetail.total_value.toFixed(4)} ETH` : 'clean balance'}`,
-                color: isScam ? "red" : "emerald",
-                wallets_count: 1,
-                amount: traceDetail?.total_value ? `${traceDetail.total_value.toFixed(4)} ETH` : undefined,
-              },
-              {
-                stage: 2,
-                title: isScam ? "Primary Scammer Intake" : "Counterparty Transfer",
-                role: isScam ? "SUSPECT (Hop 1)" : "RECIPIENT",
-                badge: isScam ? "Initial Entry Hub" : "Recipient",
-                description: isScam ? "Direct initial recipient that ingested the full stolen sum from victim." : "Direct counterparty recipient.",
-                color: isScam ? "orange" : "cyan",
-                wallets_count: 1,
-              },
-              ...(hasFanOut ? [{
-                stage: 3,
-                title: "Mule Dispersal (Fan-Out)",
-                role: `${Math.max(1, totalNodesCount - 2)} BURNER MULES`,
-                badge: "Volume Dilution",
-                description: `Fractured across ${Math.max(1, totalNodesCount - 2)} throwaway addresses at ${isBotSpeed ? 'bot speed (< 120s)' : 'rapid speed'} to evade AML alarms.`,
-                color: "amber",
-                wallets_count: Math.max(1, totalNodesCount - 2),
-              }] : []),
-              ...(hasFanIn ? [{
-                stage: hasFanOut ? 4 : 3,
-                title: "Funnel Pooling (Fan-In)",
-                role: "CONSOLIDATOR HUB",
-                badge: "Reconvergence",
-                description: "Mule streams funnel back together into a central aggregator wallet.",
-                color: "purple",
-                wallets_count: 1,
-              }] : []),
-              {
-                stage: (hasFanOut && hasFanIn) ? 5 : (hasFanOut || hasFanIn) ? 4 : 3,
-                title: detectedVasp ? `${detectedVasp} Exit` : "Terminal Holding Residence",
-                role: detectedVasp ? `${detectedVasp} (VASP)` : "UNSPENT WALLET",
-                badge: detectedVasp ? "Subpoena Target" : "Active Hold",
-                description: detectedVasp 
-                  ? `Deposited into ${detectedVasp} for fiat liquidation (Target for Section 91 CrPC freeze notice).`
-                  : "Funds currently resting in suspect-controlled wallet awaiting subsequent liquidation or secondary transfer.",
-                color: detectedVasp ? "cyan" : "emerald",
-                wallets_count: 1,
-              }
-            ];
 
         return (
           <div className={cn(
@@ -1027,19 +964,6 @@ function GraphContent() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIntelView('flow')}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5",
-                    intelView === 'flow'
-                      ? "bg-[#00ff66]/20 text-[#00ff66] border border-[#00ff66]/50 shadow-[0_0_12px_rgba(0,255,102,0.25)]"
-                      : "text-slate-400 hover:text-white border border-transparent hover:border-[#0d331d]"
-                  )}
-                >
-                  <GitBranch className="w-3.5 h-3.5" />
-                  <span>Correct Pattern Flow (Visual Pipeline)</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => setIntelView('story')}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5",
@@ -1073,93 +997,7 @@ function GraphContent() {
               </div>
             </div>
 
-            {/* TAB 1: Visual Step-by-Step Correct Pattern Flow Pipeline */}
-            {intelView === 'flow' && (
-              <div className="space-y-3 animate-fade-in">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg bg-[#021309] border border-[#00ff66]/30">
-                  <div className="flex items-center gap-2 text-xs font-mono font-bold text-white">
-                    <span className="w-2 h-2 rounded-full bg-[#00ff66] animate-pulse" />
-                    <span>CORRECT PATTERN FLOW:</span>
-                    <span className="text-[#00ff66] font-bold">{patternFlowTitle}</span>
-                  </div>
-                  <span className="text-xs font-mono text-emerald-400/80">
-                    {flowStages.length} Verified Stages
-                  </span>
-                </div>
-
-                {/* Horizontal Connected Stage Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {flowStages.map((stage: any, sIdx: number) => {
-                    const isLast = sIdx === flowStages.length - 1;
-                    return (
-                      <div
-                        key={sIdx}
-                        className={cn(
-                          "relative p-3.5 rounded-xl border flex flex-col justify-between space-y-2.5 transition-all shadow-md",
-                          stage.color === 'red'
-                            ? "bg-gradient-to-b from-[#240808] to-[#021309] border-red-500/40 hover:border-red-500/70"
-                            : stage.color === 'orange'
-                            ? "bg-gradient-to-b from-[#241508] to-[#021309] border-amber-500/40 hover:border-amber-500/70"
-                            : stage.color === 'amber'
-                            ? "bg-gradient-to-b from-[#201804] to-[#021309] border-yellow-500/40 hover:border-yellow-500/70"
-                            : stage.color === 'purple'
-                            ? "bg-gradient-to-b from-[#1a0824] to-[#021309] border-purple-500/40 hover:border-purple-500/70"
-                            : stage.color === 'cyan'
-                            ? "bg-gradient-to-b from-[#041d24] to-[#021309] border-cyan-500/40 hover:border-cyan-500/70"
-                            : "bg-gradient-to-b from-[#042412] to-[#021309] border-[#00ff66]/40 hover:border-[#00ff66]/70"
-                        )}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className={cn(
-                              "w-6 h-6 rounded-full font-mono text-xs font-black flex items-center justify-center border",
-                              stage.color === 'red' ? "bg-red-500/20 text-red-300 border-red-500/50" :
-                              stage.color === 'orange' ? "bg-amber-500/20 text-amber-300 border-amber-500/50" :
-                              stage.color === 'amber' ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/50" :
-                              stage.color === 'purple' ? "bg-purple-500/20 text-purple-300 border-purple-500/50" :
-                              stage.color === 'cyan' ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/50" :
-                              "bg-[#00ff66]/20 text-[#00ff66] border-[#00ff66]/50"
-                            )}>
-                              {stage.stage}
-                            </span>
-                            <span className={cn(
-                              "px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase border",
-                              stage.color === 'red' ? "bg-red-950/80 text-red-300 border-red-500/40" :
-                              stage.color === 'orange' ? "bg-amber-950/80 text-amber-300 border-amber-500/40" :
-                              stage.color === 'amber' ? "bg-yellow-950/80 text-yellow-300 border-yellow-500/40" :
-                              stage.color === 'purple' ? "bg-purple-950/80 text-purple-300 border-purple-500/40" :
-                              stage.color === 'cyan' ? "bg-cyan-950/80 text-cyan-300 border-cyan-500/40" :
-                              "bg-emerald-950/80 text-emerald-300 border-[#00ff66]/40"
-                            )}>
-                              {stage.badge}
-                            </span>
-                          </div>
-
-                          <h4 className="text-xs sm:text-sm font-bold text-white leading-tight">
-                            {stage.title}
-                          </h4>
-                          <p className="text-xs font-mono font-bold mt-0.5 text-emerald-400">
-                            {stage.role}
-                          </p>
-                          <p className="text-xs text-slate-300 mt-1 leading-snug font-sans">
-                            {stage.description}
-                          </p>
-                        </div>
-
-                        {stage.amount && (
-                          <div className="pt-2 border-t border-[#1e293b]/70 flex items-center justify-between text-xs font-mono">
-                            <span className="text-slate-400">Value:</span>
-                            <span className="font-bold text-white">{stage.amount}</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: 4-Point Forensic Analysis Cards */}
+            {/* TAB 1: 4-Point Forensic Analysis Cards */}
             {intelView === 'story' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 font-mono animate-fade-in">
                 {/* Box 1: Crime Typology & Scam Category */}
@@ -1188,7 +1026,7 @@ function GraphContent() {
                 <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#042412] to-[#021309] border border-[#00ff66]/40 space-y-1.5 shadow-md">
                   <div className="flex items-center gap-1.5 text-[#00ff66] text-xs uppercase font-bold tracking-wider">
                     <GitBranch className="w-4 h-4" />
-                    <span>2. Correct Flow Pattern</span>
+                    <span>2. Flow Pattern</span>
                   </div>
                   <p className="text-sm sm:text-base font-bold text-emerald-200 leading-tight">
                     {topology?.topology_label || "Direct Peer-to-Peer Flow"}
