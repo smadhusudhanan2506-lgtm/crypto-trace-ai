@@ -155,3 +155,32 @@ export function getSeverityInfo(severity: string): { color: string; bg: string }
 export function cn(...classes: (string | undefined | null | false)[]): string {
   return classes.filter(Boolean).join(' ');
 }
+
+/** Format seconds into human-readable duration (e.g., 893695s -> "10d 8h 14m") */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined || isNaN(seconds) || seconds <= 0) return 'Instant (< 1m)';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${Math.round(seconds % 60)}s`;
+  const hours = Math.floor(minutes / 60);
+  const remMinutes = minutes % 60;
+  if (hours < 24) return `${hours}h ${remMinutes}m`;
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  return `${days}d ${remHours}h`;
+}
+
+/** Copy text to clipboard safely */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  if (!text) return false;
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (err) {
+    console.error('Clipboard copy error:', err);
+  }
+  return false;
+}
+

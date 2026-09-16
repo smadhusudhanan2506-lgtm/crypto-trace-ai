@@ -60,11 +60,11 @@ export default function Sidebar() {
             </div>
             {(!collapsedDesktop || openMobile) && (
               <div className="overflow-hidden">
-                <h1 className="text-sm font-bold text-white tracking-wide flex items-center gap-1.5">
+                <h1 className="text-base font-bold text-white tracking-wide flex items-center gap-1.5">
                   <span>CryptoTrace</span>
                   <span className="w-1.5 h-1.5 rounded-full bg-[#00ff66] animate-pulse" />
                 </h1>
-                <p className="text-[10px] text-[#00ff66]/90 font-mono uppercase tracking-widest">CYBER INVESTIGATOR</p>
+                <p className="text-xs text-[#00ff66]/90 font-mono uppercase tracking-wider font-semibold">CYBER INVESTIGATOR</p>
               </div>
             )}
           </div>
@@ -81,7 +81,7 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 py-3 overflow-y-auto scrollbar-thin">
-          <ul className="space-y-1 px-2">
+          <ul className="space-y-1.5 px-2">
             {navItems.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href || pathname.startsWith(href + '/');
               return (
@@ -90,16 +90,16 @@ export default function Sidebar() {
                     href={href}
                     onClick={() => setOpenMobile(false)}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-200',
                       'hover:bg-[#072414] hover:text-white group',
                       isActive
                         ? 'bg-[#00ff66]/15 text-[#00ff66] border border-[#00ff66]/40 shadow-[0_0_16px_rgba(0,255,102,0.18)] font-semibold'
-                        : 'text-emerald-100/70 border border-transparent'
+                        : 'text-emerald-100/75 border border-transparent'
                     )}
                     title={collapsedDesktop && !openMobile ? label : undefined}
                   >
                     <Icon className={cn(
-                      'w-[18px] h-[18px] shrink-0 transition-colors',
+                      'w-5 h-5 shrink-0 transition-colors',
                       isActive ? 'text-[#00ff66] drop-shadow-[0_0_8px_rgba(0,255,102,0.6)]' : 'text-emerald-500/70 group-hover:text-emerald-300'
                     )} />
                     {(!collapsedDesktop || openMobile) && <span>{label}</span>}
@@ -114,13 +114,13 @@ export default function Sidebar() {
         <div className="border-t border-[#0d331d]/80 p-3 shrink-0 space-y-2 bg-[#020f07]/80">
           {/* User info */}
           {user && (!collapsedDesktop || openMobile) && (
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-[#041d0e]/60 border border-[#0d331d]/60">
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[#041d0e]/60 border border-[#0d331d]/60">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00ff66] to-[#059669] flex items-center justify-center text-xs font-bold text-[#020b06] shrink-0 shadow-[0_0_10px_rgba(0,255,102,0.3)]">
                 {user.full_name.charAt(0).toUpperCase()}
               </div>
               <div className="overflow-hidden">
-                <p className="text-xs font-medium text-white truncate">{user.full_name}</p>
-                <p className="text-[10px] text-emerald-400/80 truncate font-mono">{user.role}</p>
+                <p className="text-sm font-medium text-white truncate">{user.full_name}</p>
+                <p className="text-xs text-emerald-400/80 truncate font-mono">{user.role}</p>
               </div>
             </div>
           )}
@@ -129,7 +129,7 @@ export default function Sidebar() {
             <button
               onClick={logout}
               className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all',
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all',
                 'text-emerald-400/70 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/20 border border-transparent',
                 collapsedDesktop && !openMobile ? 'w-full justify-center' : 'flex-1'
               )}

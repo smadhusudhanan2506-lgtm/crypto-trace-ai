@@ -31,6 +31,7 @@
   }
 
   html {
+    font-size: 18px;
     color-scheme: dark;
     scroll-behavior: smooth;
   }
@@ -42,6 +43,18 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+  }
+
+  /* Micro typography auto-boost so tiny badge / tag text is easily readable */
+  [class*="text-[10px]"],
+  [class*="text-[11px]"] {
+    font-size: 0.8rem !important;
+    line-height: 1.35 !important;
+  }
+
+  .text-xs {
+    font-size: 0.825rem !important;
+    line-height: 1.35 !important;
   }
 
   /* Custom selection color */
@@ -120,12 +133,12 @@
     background: linear-gradient(135deg, #00ff66, #059669);
     color: #020b06;
     font-weight: 700;
-    padding: 0.625rem 1.25rem;
+    padding: 0.75rem 1.45rem;
     border-radius: 10px;
     border: none;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-size: 0.875rem;
+    font-size: 1.02rem;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -143,12 +156,12 @@
     background: rgba(6, 26, 15, 0.75);
     color: #a7f3d0;
     font-weight: 500;
-    padding: 0.625rem 1.25rem;
+    padding: 0.75rem 1.45rem;
     border-radius: 10px;
     border: 1px solid rgba(16, 185, 129, 0.3);
     cursor: pointer;
     transition: all 0.2s ease;
-    font-size: 0.875rem;
+    font-size: 1.02rem;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -164,12 +177,12 @@
     background: rgba(239, 68, 68, 0.15);
     color: #ef4444;
     font-weight: 500;
-    padding: 0.625rem 1.25rem;
+    padding: 0.75rem 1.45rem;
     border-radius: 10px;
     border: 1px solid rgba(239, 68, 68, 0.3);
     cursor: pointer;
     transition: all 0.2s ease;
-    font-size: 0.875rem;
+    font-size: 1.02rem;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -182,12 +195,12 @@
   /* Input styles */
   .input-field {
     width: 100%;
-    padding: 0.625rem 0.875rem;
+    padding: 0.8rem 1.1rem;
     background: rgba(3, 18, 10, 0.85);
     border: 1px solid rgba(16, 185, 129, 0.25);
     border-radius: 10px;
     color: #f0fdf4;
-    font-size: 0.875rem;
+    font-size: 1.02rem;
     transition: all 0.2s ease;
     outline: none;
   }
@@ -203,13 +216,13 @@
   .badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.25rem 0.625rem;
+    gap: 0.35rem;
+    padding: 0.4rem 0.85rem;
     border-radius: 9999px;
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     font-weight: 600;
     border: 1px solid;
-    line-height: 1;
+    line-height: 1.25;
   }
 
   /* Table */
@@ -220,9 +233,9 @@
   }
   .data-table th {
     text-align: left;
-    padding: 0.75rem 1rem;
-    font-size: 0.75rem;
-    font-weight: 600;
+    padding: 0.95rem 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 700;
     color: #6ee7b7;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -230,8 +243,8 @@
     white-space: nowrap;
   }
   .data-table td {
-    padding: 0.75rem 1rem;
-    font-size: 0.875rem;
+    padding: 0.95rem 1.2rem;
+    font-size: 1.02rem;
     color: #d1fae5;
     border-bottom: 1px solid rgba(16, 185, 129, 0.12);
     white-space: nowrap;

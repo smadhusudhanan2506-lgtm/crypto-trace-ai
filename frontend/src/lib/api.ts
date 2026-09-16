@@ -1988,64 +1988,142 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = '')
     ? (calculatedRiskScore >= 75 ? 'critical' : 'high') 
     : (calculatedRiskScore >= 25 ? 'medium' : 'low');
 
+  let scamCategory = isSuspiciousCrime ? 'Automated Phishing Drainer & Multi-Burner Syndicate' : 'Clean Legitimate Transfer';
+  let scamCategoryDescription = isSuspiciousCrime
+    ? 'Defrauded cryptocurrency was siphoned and immediately fractured across throwaway burner mules to prevent law enforcement asset freezing.'
+    : 'Standard cryptocurrency transfer between counterparties with no money laundering or obfuscation.';
+  let patternFlowSummary = 'Direct 1-to-1 Transfer';
+  let flowStages: NonNullable<GraphTopologyAnalysis['flow_stages']> = [];
+
   if (isSuspiciousCrime) {
     if (hasMixer) {
       primaryTopology = 'TORNADO_MIXER_POOL';
       topologyLabel = 'Privacy Mixer Smart Contract Anonymization';
-      crimeTypology = 'Privacy Pool Anonymization & History Sanitization';
+      crimeTypology = 'Smart Contract Privacy Mixer Laundering';
       predictedPurpose = 'Cryptographic Trail Severing & Traceability Erasure';
-      crimeDescription = `Perpetrator routed ${totalValueFormatted} directly into privacy mixer smart contracts on ${chainName} to sever the deterministic cryptographic trail between the victim and downstream cash-out endpoints.`;
-      purposeDescription = `To permanently break on-chain forensic traceability and evade AML/CFT regulatory oversight before subsequent off-ramping.`;
+      scamCategory = 'Smart Contract Privacy Mixer Laundering';
+      scamCategoryDescription = `Perpetrator routed ${totalValueFormatted} into privacy pool smart contracts to permanently erase cryptographic origin before cashing out.`;
+      patternFlowSummary = `Victim (Hop 0) ➔ Primary Scammer ➔ Mixer Contract Pool ➔ Sanitized Downstream Target`;
+      flowStages = [
+        { stage: 1, title: 'Victim Loss', role: 'VICTIM (Hop 0)', description: `Defrauded ${totalValueFormatted}`, badge: 'Theft Point', color: 'red', wallets_count: 1, amount: totalValueFormatted },
+        { stage: 2, title: 'Primary Intake', role: 'SUSPECT (A)', description: 'Direct recipient from victim', badge: 'Initial Hub', color: 'orange', wallets_count: 1 },
+        { stage: 3, title: 'Mixer Obfuscation', role: 'PRIVACY POOL', description: 'Deposited into Tornado Cash / Mixer contract', badge: 'Trail Severed', color: 'purple', wallets_count: 1 },
+        { stage: 4, title: 'Sanitized Exit', role: 'RECIPIENT', description: 'Fresh untraceable address withdrawal', badge: 'Clean Off-Ramp', color: 'emerald', wallets_count: 1 },
+      ];
     } else if (isInstantSwap) {
       primaryTopology = 'INSTANT_SWAP_EXIT';
       topologyLabel = `Automated Non-KYC Instant Swap via ${detectedVaspName}`;
       crimeTypology = `Instant Non-Custodial Swap Laundering (${detectedVaspName})`;
       predictedPurpose = `Non-KYC Asset Conversion via ${detectedVaspName}`;
-      crimeDescription = `Perpetrator moved ${totalValueFormatted} across ${totalWalletsCount} wallets (${totalHopsCount} hops at ${speedDescriptor}) directly terminating into ${detectedVaspName} to execute automated, no-KYC cross-chain or privacy token swaps.`;
-      purposeDescription = `To convert stolen ${nativeAsset} into unmonitored cryptocurrencies or cross-chain assets without undergoing statutory identity verification (AML/KYC evasion).`;
+      scamCategory = `Automated Instant Swap & Cross-Chain Evasion (${detectedVaspName})`;
+      scamCategoryDescription = `Perpetrator moved stolen funds directly into ${detectedVaspName} to execute automated, no-KYC swaps into untraceable coins or cross-chain assets.`;
+      patternFlowSummary = `Victim (Hop 0) ➔ Suspect Mules ➔ ${detectedVaspName} Swap Service ➔ Cross-Chain Target`;
+      flowStages = [
+        { stage: 1, title: 'Victim Loss', role: 'VICTIM (Hop 0)', description: `Victim siphoned for ${totalValueFormatted}`, badge: 'Theft Point', color: 'red', wallets_count: 1, amount: totalValueFormatted },
+        { stage: 2, title: 'Intermediary Mule', role: 'SUSPECT / MULE', description: 'Transferred through rapid staging wallet', badge: 'Staging Hop', color: 'amber', wallets_count: Math.max(1, totalWalletsCount - 2) },
+        { stage: 3, title: 'Instant Swap Point', role: detectedVaspName, description: 'Automated no-KYC conversion endpoint', badge: 'Evasion Swap', color: 'cyan', wallets_count: 1 },
+        { stage: 4, title: 'Cross-Chain Exit', role: 'TERMINAL ASSET', description: 'Withdrawn as Monero / secondary chain token', badge: 'Exit Target', color: 'purple', wallets_count: 1 },
+      ];
     } else if (isDex) {
       primaryTopology = 'DEX_ROUTER_SWAP';
       topologyLabel = `Decentralized Protocol Swap (${detectedVaspName})`;
       crimeTypology = `DeFi Liquidity Pool Token Conversion (${detectedVaspName})`;
       predictedPurpose = `Decentralized Token Swapping & Layering`;
-      crimeDescription = `Defrauded assets of ${totalValueFormatted} routed through ${detectedVaspName} smart contracts to swap stolen tokens into stablecoins (USDT/USDC) before secondary dispersal.`;
-      purposeDescription = `To convert volatile or tainted victim tokens into liquid stablecoins via decentralized liquidity pools before off-ramping.`;
+      scamCategory = `DeFi Decentralized Exchange Token Swap (${detectedVaspName})`;
+      scamCategoryDescription = `Defrauded tokens routed through ${detectedVaspName} decentralized liquidity pools to swap into stablecoins without submitting KYC identity documents.`;
+      patternFlowSummary = `Victim (Hop 0) ➔ Primary Scammer ➔ ${detectedVaspName} Router Contract ➔ Liquidity Pool Token Receipt`;
+      flowStages = [
+        { stage: 1, title: 'Victim Loss', role: 'VICTIM (Hop 0)', description: `Victim assets drained (${totalValueFormatted})`, badge: 'Theft Point', color: 'red', wallets_count: 1, amount: totalValueFormatted },
+        { stage: 2, title: 'Scammer Staging', role: 'SUSPECT (A)', description: 'Prepared approval & contract interaction', badge: 'Attacker Wallet', color: 'orange', wallets_count: 1 },
+        { stage: 3, title: 'DEX Pool Swap', role: `${detectedVaspName} Router`, description: 'Smart contract liquidity pool swap', badge: 'Automated AMM', color: 'purple', wallets_count: 1 },
+        { stage: 4, title: 'Stablecoin Receipt', role: 'HOLDING WALLET', description: 'Received converted USDT/USDC tokens', badge: 'Liquid Asset', color: 'cyan', wallets_count: 1 },
+      ];
     } else if (isCex) {
       primaryTopology = 'EXCHANGE_CASH_OUT';
       topologyLabel = `Centralized Exchange Liquidation Funnel (${detectedVaspName})`;
-      crimeTypology = `Layered Exchange Cash-Out Nexus (${detectedVaspName})`;
+      crimeTypology = `Centralized Exchange Cash-Out Nexus (${detectedVaspName})`;
       predictedPurpose = `Terminal Fiat Liquidation via ${detectedVaspName}`;
-      crimeDescription = `Perpetrator staged ${totalValueFormatted} through ${totalWalletsCount} wallets in ${totalHopsCount} hops, terminating at a custodial deposit account at ${detectedVaspName}.`;
-      purposeDescription = `Terminal liquidation of stolen cryptocurrency into fiat currency / P2P bank transfers through custodial account at ${detectedVaspName} (Subpoenable target under Section 91 CrPC / Section 94 BNSS).`;
+      scamCategory = `Centralized Exchange Cash-Out Nexus (${detectedVaspName})`;
+      scamCategoryDescription = `Perpetrator staged stolen funds through money mules, terminating at a custodial deposit account at ${detectedVaspName} to liquidate into fiat currency or P2P transfers.`;
+      patternFlowSummary = `Victim (Hop 0) ➔ Suspect Mules ➔ ${detectedVaspName} Deposit Address (Section 91 CrPC Freeze Target)`;
+      flowStages = [
+        { stage: 1, title: 'Victim Loss', role: 'VICTIM (Hop 0)', description: `Siphoned sum of ${totalValueFormatted}`, badge: 'Theft Point', color: 'red', wallets_count: 1, amount: totalValueFormatted },
+        { stage: 2, title: 'Mule Layering', role: 'INTERMEDIARY MULES', description: `Bounced through ${totalWalletsCount - 2} intermediary hops at ${speedDescriptor}`, badge: 'Trace Dilution', color: 'amber', wallets_count: Math.max(1, totalWalletsCount - 2) },
+        { stage: 3, title: 'Exchange Deposit', role: `${detectedVaspName} Custodial Account`, description: `Deposit account linked to KYC identity at ${detectedVaspName}`, badge: 'Subpoena Point', color: 'cyan', wallets_count: 1 },
+        { stage: 4, title: 'Fiat Liquidation', role: 'BANK / P2P CASHOUT', description: 'Attempted off-ramping into domestic/international fiat banking', badge: 'Cashout Goal', color: 'emerald', wallets_count: 1 },
+      ];
     } else if (hasFanOut && totalWalletsCount >= 4) {
       primaryTopology = 'STAR_FAN_OUT_DISPERSAL';
       topologyLabel = `Star-Topology Fan-Out (${totalWalletsCount} Wallets)`;
-      crimeTypology = `Multi-Burner Syndicate Dispersal Scheme`;
+      crimeTypology = hasFanIn
+        ? 'Automated Phishing Drainer & Multi-Burner Syndicate'
+        : 'Syndicate Multi-Wallet Dispersal (Fan-Out Splitting)';
       predictedPurpose = `Preemptive Asset Splitting across Burner Wallets`;
-      crimeDescription = `Perpetrator fractured ${totalValueFormatted} across ${totalWalletsCount - 2} intermediate burner addresses at ${speedDescriptor} to prevent unilateral freezing and dilute transaction volume below AML tripwires.`;
-      purposeDescription = `To split stolen funds into smaller batches across temporary unhosted mules to evade automated threshold alarms and complicate police asset freezing.`;
+      scamCategory = crimeTypology;
+      scamCategoryDescription = `Perpetrator fractured ${totalValueFormatted} across ${totalWalletsCount - 2} intermediate burner addresses at ${speedDescriptor}. Scammers split funds across throwaway burner mules so law enforcement or exchanges cannot freeze the full amount with a single notice.`;
+      patternFlowSummary = hasFanIn
+        ? `Victim (Hop 0) ➔ Primary Scammer (Hop 1) ➔ ${totalWalletsCount - 2} Burner Mules (Fan-Out) ➔ Funnel Pooling (Fan-In) ➔ Destination Target`
+        : `Victim (Hop 0) ➔ Primary Scammer (Hop 1) ➔ ${totalWalletsCount - 2} Burner Mules (Fan-Out Dispersal)`;
+      flowStages = [
+        { stage: 1, title: 'Victim Loss', role: 'VICTIM (Hop 0)', description: `Unauthorized drainage of ${totalValueFormatted}`, badge: 'Theft Point', color: 'red', wallets_count: 1, amount: totalValueFormatted },
+        { stage: 2, title: 'Primary Scammer Intake', role: 'SUSPECT (Hop 1)', description: 'Direct initial recipient that ingested the stolen funds', badge: 'Entry Hub', color: 'orange', wallets_count: 1 },
+        { stage: 3, title: 'Fan-Out Dispersal', role: `${totalWalletsCount - 2} BURNER MULES`, description: `Fractured across ${totalWalletsCount - 2} burner addresses at ${speedDescriptor} to evade AML alarms`, badge: 'Volume Dilution', color: 'amber', wallets_count: totalWalletsCount - 2 },
+        ...(hasFanIn ? [
+          { stage: 4, title: 'Funnel Reconvergence', role: 'CONSOLIDATION HUB', description: 'Mule streams recombined into central collector wallet', badge: 'Reconvergence', color: 'purple', wallets_count: 1 },
+          { stage: 5, title: 'Terminal Destination', role: 'UNSPENT HOLDING / EXIT', description: 'Current holding point awaiting off-ramping or secondary bounce', badge: 'Active Hold', color: 'emerald', wallets_count: 1 },
+        ] : [
+          { stage: 4, title: 'Dispersed Residence', role: 'UNSPENT BURNER WALLETS', description: 'Balances resting across unhosted burner wallets', badge: 'Active Hold', color: 'emerald', wallets_count: totalWalletsCount - 2 },
+        ]),
+      ];
     } else if (hasPeel && decayRate > 10) {
       primaryTopology = 'LINEAR_PEEL_CHAIN';
       topologyLabel = `Linear Peel Chain (${decayRate}% Siphoned Decay)`;
       crimeTypology = `Progressive Peel-Chain Siphoning & Layering`;
       predictedPurpose = `Incremental Mule Layering & Volume Skimming`;
-      crimeDescription = `Sequential fund movement across ${totalHopsCount} hops on ${chainName} with an active balance decay of ${decayRate}%, reflecting progressive transaction skimming at intermediate money mule hops.`;
-      purposeDescription = `To gradually peel off smaller amounts to multiple accomplice wallets while forwarding the residual balance to distance the funds from the initial theft.`;
+      scamCategory = 'Linear Peel Chain Siphoning Scheme';
+      scamCategoryDescription = `Sequential fund movement across ${totalHopsCount} hops with ${decayRate}% balance decay. The scammer sequentially peeled off small portions to accomplice wallets while forwarding the remaining balance.`;
+      patternFlowSummary = `Victim (Hop 0) ➔ Hop 1 ➔ Hop 2 ➔ Hop 3 ➔ Residual Target (${totalHopsCount} Sequential Peels)`;
+      flowStages = [
+        { stage: 1, title: 'Victim Loss', role: 'VICTIM (Hop 0)', description: `Victim siphoned for ${totalValueFormatted}`, badge: 'Theft Point', color: 'red', wallets_count: 1, amount: totalValueFormatted },
+        { stage: 2, title: 'Sequential Peels', role: `${totalHopsCount} PEEL HOPS`, description: `Progressive skimming with ${decayRate}% total balance decay`, badge: 'Peel Layering', color: 'amber', wallets_count: totalHopsCount },
+        { stage: 3, title: 'Residual Exit', role: 'TERMINAL WALLET', description: 'Remaining unpeeled balance resting or awaiting exchange deposit', badge: 'Residual Target', color: 'cyan', wallets_count: 1 },
+      ];
     } else if (hasFanIn && totalWalletsCount >= 4) {
       primaryTopology = 'FAN_IN_CONSOLIDATION';
       topologyLabel = `Multi-Source Inflow Consolidation (${totalWalletsCount} Wallets)`;
       crimeTypology = `Multi-Victim Syndicate Fund Aggregation`;
       predictedPurpose = `Consolidating Multi-Source Proceeds before Liquidation`;
-      crimeDescription = `Multiple independent victim transfers of ${totalValueFormatted} merged into a central consolidation nexus at ${suspectDisplay} to pool proceeds before bulk distribution.`;
-      purposeDescription = `Aggregating fragmented proceeds from multiple defrauded victims into a unified holding pool awaiting coordinated laundering or liquidation.`;
+      scamCategory = 'Multi-Victim Syndicate Aggregation (Fan-In Funnel)';
+      scamCategoryDescription = `Multiple independent victims or mule wallets sent funds converging into a single consolidation nexus to pool proceeds before bulk distribution.`;
+      patternFlowSummary = `Multiple Defrauded Sources ➔ Inflow Funnel ➔ Central Collector Nexus ➔ Downstream Liquidation`;
+      flowStages = [
+        { stage: 1, title: 'Multiple Sources', role: 'VICTIMS / TRIBUTARIES', description: `Multiple incoming streams totaling ${totalValueFormatted}`, badge: 'Multi-Source', color: 'red', wallets_count: totalWalletsCount - 2, amount: totalValueFormatted },
+        { stage: 2, title: 'Funnel Inflow', role: 'INTERMEDIARY HOPS', description: 'Coordinated transfers converging simultaneously', badge: 'Fan-In Pooling', color: 'amber', wallets_count: totalWalletsCount - 2 },
+        { stage: 3, title: 'Central Collector', role: 'CONSOLIDATION NEXUS', description: 'Aggregator address pooling all defrauded funds', badge: 'Master Wallet', color: 'purple', wallets_count: 1 },
+        { stage: 4, title: 'Bulk Distribution', role: 'DOWNSTREAM EXIT', description: 'Awaiting bulk liquidation or laundering', badge: 'Exit Target', color: 'emerald', wallets_count: 1 },
+      ];
     } else {
       primaryTopology = 'MONEY_MULE_LAYERING';
       topologyLabel = `Sequential Money Mule Trail (${totalHopsCount} Hops)`;
       crimeTypology = `Sequential Money Mule Obfuscation`;
       predictedPurpose = `Intermediary Mule Layering before Liquidation`;
-      crimeDescription = `Perpetrator bounced ${totalValueFormatted} through ${totalWalletsCount} unhosted intermediary wallets on ${chainName} at ${speedDescriptor} with ${decayRate}% decay.`;
-      purposeDescription = `To artificially increase the cryptographic hop distance from the victim to delay and exhaust cyber cell forensic tracing.`;
+      scamCategory = 'Sequential Money Mule Layering Ring';
+      scamCategoryDescription = `Perpetrator bounced ${totalValueFormatted} through ${totalWalletsCount} unhosted intermediary wallets at ${speedDescriptor} to artificially increase hop distance from the victim.`;
+      patternFlowSummary = `Victim (Hop 0) ➔ Mule 1 ➔ Mule 2 ➔ Final Holding Address (${totalHopsCount} Hops)`;
+      flowStages = [
+        { stage: 1, title: 'Victim Loss', role: 'VICTIM (Hop 0)', description: `Stolen sum of ${totalValueFormatted}`, badge: 'Theft Point', color: 'red', wallets_count: 1, amount: totalValueFormatted },
+        { stage: 2, title: 'Mule Bounces', role: 'INTERMEDIARY MULES', description: `Bounced through ${totalWalletsCount - 2} intermediary wallets at ${speedDescriptor}`, badge: 'Layering Hops', color: 'amber', wallets_count: Math.max(1, totalWalletsCount - 2) },
+        { stage: 3, title: 'Terminal Holding', role: 'CURRENT RESIDENCE', description: 'Resting in unhosted wallet awaiting cashout', badge: 'Holding Point', color: 'emerald', wallets_count: 1 },
+      ];
     }
+  } else {
+    scamCategory = 'Clean Legitimate Cryptocurrency Transfer';
+    scamCategoryDescription = 'Verified standard transaction flow with clean counterparty history and zero interaction with mixers or money mule networks.';
+    patternFlowSummary = `Sender (Hop 0) ➔ Recipient Counterparty (${totalHopsCount} Direct Transfer)`;
+    flowStages = [
+      { stage: 1, title: 'Sender', role: 'ORIGIN ADDRESS', description: `Clean transfer of ${totalValueFormatted}`, badge: 'Clean Source', color: 'emerald', wallets_count: 1, amount: totalValueFormatted },
+      { stage: 2, title: 'Direct Recipient', role: 'COUNTERPARTY', description: 'Normal receipt with clean transaction ledger', badge: 'Recipient', color: 'cyan', wallets_count: 1 },
+    ];
   }
 
   // Generate clean non-alarmist detected patterns if benign
@@ -2125,6 +2203,10 @@ async function createLiveOnChainTrace(txOrAddr: string, chainParam: string = '')
       ],
       illicit_indicators: isSuspiciousCrime ? finalDetectedPatterns.map(p => p.name) : [],
     },
+    scam_category: scamCategory,
+    scam_category_description: scamCategoryDescription,
+    pattern_flow_summary: patternFlowSummary,
+    flow_stages: flowStages,
   };
 
   const traceObj: TraceDetail = {

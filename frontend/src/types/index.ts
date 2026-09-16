@@ -329,6 +329,19 @@ export interface GraphTopologyAnalysis {
     commercial_indicators: string[];
     illicit_indicators: string[];
   };
+  scam_category?: string;
+  scam_category_description?: string;
+  pattern_flow_summary?: string;
+  flow_stages?: Array<{
+    stage: number;
+    title: string;
+    role: string;
+    description: string;
+    badge: string;
+    color: string;
+    wallets_count?: number;
+    amount?: string;
+  }>;
 }
 
 export interface GraphData {

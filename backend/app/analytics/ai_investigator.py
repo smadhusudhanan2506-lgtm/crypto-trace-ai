@@ -370,12 +370,21 @@ def _classify_criminal_intent(
         })
 
     if has_vasp:
-        intents.append({
-            "category": "Custodial Exchange Cashout",
-            "detected": True,
-            "description": "Attempting to liquidate cryptocurrency into fiat or untraceable assets via a centralized exchange (VASP).",
-            "evidence": f"Funds traced to custodial endpoint: {', '.join(vasp_names) if vasp_names else 'Known VASP'}",
-        })
+        is_dex = any(dex in " ".join(vasp_names).lower() for dex in ["uniswap", "pancake", "sushi", "raydium", "sunswap", "curve", "balancer", "1inch", "router"])
+        if is_dex:
+            intents.append({
+                "category": "Decentralized Liquidity Swap (DEX)",
+                "detected": True,
+                "description": "Converting cryptocurrency into alternative tokens via automated non-KYC liquidity pools to hinder direct tracking.",
+                "evidence": f"Funds routed into decentralized protocol router: {', '.join(vasp_names)}",
+            })
+        else:
+            intents.append({
+                "category": "Custodial Exchange Cashout",
+                "detected": True,
+                "description": "Attempting to liquidate cryptocurrency into fiat or untraceable assets via a centralized exchange (VASP).",
+                "evidence": f"Funds traced to custodial endpoint: {', '.join(vasp_names) if vasp_names else 'Known VASP'}",
+            })
 
     if amount_analysis.get("structuring_detected"):
         intents.append({
@@ -411,19 +420,36 @@ def _generate_police_action_plan(
 
     # Step 1: Legal Notice / Subpoena if VASP exists
     if intent.get("vasp_identified"):
-        vasps = ", ".join(intent.get("vasp_names", [])) or "Identified VASP"
-        actions.append({
-            "priority": "IMMEDIATE (Within 24 Hours)",
-            "title": f"Serve Section 91 CrPC / Subpoena Notice to {vasps}",
-            "purpose": "Identify the real-world identity of the criminal account holder and request deposit freeze.",
-            "details": [
-                f"Identify the recipient deposit address on {vasps}.",
-                "Request KYC records (Full Name, National ID, Phone, Registered Email, linked Bank Account/UPI).",
-                "Request IP login logs with timestamps, device user-agents, and withdrawal destination wallets.",
-                "Issue a formal emergency freeze request under applicable cyber crime regulations to prevent fiat off-ramping.",
-            ],
-            "legal_basis": "Section 91 Cr.P.C. / MLAT / Intermediary Guidelines & Financial Intelligence Unit (FIU) mandate",
-        })
+        vasp_names_list = intent.get("vasp_names", [])
+        vasps = ", ".join(vasp_names_list) or "Identified VASP"
+        is_dex = any(dex in vasps.lower() for dex in ["uniswap", "pancake", "sushi", "raydium", "sunswap", "curve", "balancer", "1inch", "router"])
+        
+        if is_dex:
+            actions.append({
+                "priority": "HIGH (Protocol Swap Tracing)",
+                "title": f"Trace Liquidity Pool & Subpoena Web Frontend Logs ({vasps})",
+                "purpose": "Identify converted output tokens and downstream recipient addresses from non-custodial DEX swap.",
+                "details": [
+                    f"Notice: {vasps} is a decentralized liquidity smart contract without custodial accounts or direct KYC logs.",
+                    "Extract swap transaction receipt logs to determine the exact output tokens (e.g., USDT, DAI, USDC) and destination recipient wallet address.",
+                    "Monitor recipient wallet for secondary transfer to centralized KYC exchanges (e.g., Binance, CoinDCX, WazirX).",
+                    "If critical, request IP access logs for the transaction hash from web interface hosting providers (e.g., Uniswap Labs / Cloudflare via MLAT).",
+                ],
+                "legal_basis": "On-chain Ledger Analysis & Section 91 Cr.P.C. / MLAT to web frontend hosting providers",
+            })
+        else:
+            actions.append({
+                "priority": "IMMEDIATE (Within 24 Hours)",
+                "title": f"Serve Section 91 CrPC / Subpoena Notice to {vasps}",
+                "purpose": "Identify the real-world identity of the criminal account holder and request deposit freeze.",
+                "details": [
+                    f"Identify the recipient deposit address on {vasps}.",
+                    "Request KYC records (Full Name, National ID, Phone, Registered Email, linked Bank Account/UPI).",
+                    "Request IP login logs with timestamps, device user-agents, and withdrawal destination wallets.",
+                    "Issue a formal emergency freeze request under applicable cyber crime regulations to prevent fiat off-ramping.",
+                ],
+                "legal_basis": "Section 91 Cr.P.C. / MLAT / Intermediary Guidelines & Financial Intelligence Unit (FIU) mandate",
+            })
 
     # Step 2: Cross-Case Merging if multiple victims
     if len(victim_matches) > 1:

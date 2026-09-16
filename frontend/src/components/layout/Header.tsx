@@ -41,7 +41,7 @@ export default function Header({ appMode = 'live' }: HeaderProps) {
             placeholder="Search TXID, 0x..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 sm:py-2 rounded-lg bg-[#041d0e]/90 border border-[#0d331d] text-xs sm:text-sm text-[#f0fdf4] placeholder-emerald-600/70 focus:outline-none focus:border-[#00ff66] focus:ring-1 focus:ring-[#00ff66]/30 transition-all font-mono"
+            className="w-full pl-9 pr-3 py-1.5 sm:py-2 rounded-lg bg-[#041d0e]/90 border border-[#0d331d] text-sm sm:text-base text-[#f0fdf4] placeholder-emerald-600/70 focus:outline-none focus:border-[#00ff66] focus:ring-1 focus:ring-[#00ff66]/30 transition-all font-mono"
           />
         </div>
       </div>
@@ -49,7 +49,7 @@ export default function Header({ appMode = 'live' }: HeaderProps) {
       {/* Right Section */}
       <div className="flex items-center gap-4">
         {/* Real-time Live Status Badge */}
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border font-mono bg-[#00ff66]/15 text-[#00ff66] border-[#00ff66]/40 shadow-[0_0_12px_rgba(0,255,102,0.25)]">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold uppercase tracking-wider border font-mono bg-[#00ff66]/15 text-[#00ff66] border-[#00ff66]/40 shadow-[0_0_12px_rgba(0,255,102,0.25)]">
           <span className="w-2 h-2 rounded-full bg-[#00ff66] animate-pulse shadow-[0_0_8px_rgba(0,255,102,0.9)]" />
           <Wifi className="w-3.5 h-3.5 text-[#00ff66]" />
           <span>LIVE ON-CHAIN</span>
@@ -73,9 +73,9 @@ export default function Header({ appMode = 'live' }: HeaderProps) {
                 {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <div className="hidden md:block">
-                <p className="text-xs font-medium text-white truncate max-w-[140px]">{user.full_name}</p>
-                <p className="text-[10px] text-emerald-400/80 flex items-center gap-1 font-mono">
-                  <Shield className="w-2.5 h-2.5 text-[#00ff66]" />
+                <p className="text-sm font-medium text-white truncate max-w-[140px]">{user.full_name}</p>
+                <p className="text-xs text-emerald-400/80 flex items-center gap-1 font-mono">
+                  <Shield className="w-3 h-3 text-[#00ff66]" />
                   <span>{user.role || 'Investigator'}</span>
                 </p>
               </div>
@@ -93,8 +93,8 @@ export default function Header({ appMode = 'live' }: HeaderProps) {
                     {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
                   </div>
                   <div className="overflow-hidden">
-                    <p className="text-sm font-bold text-white truncate">{user.full_name}</p>
-                    <p className="text-xs text-emerald-400/80 truncate font-mono">{user.email}</p>
+                    <p className="text-base font-bold text-white truncate">{user.full_name}</p>
+                    <p className="text-xs sm:text-sm text-emerald-400/80 truncate font-mono">{user.email}</p>
                   </div>
                 </div>
 
